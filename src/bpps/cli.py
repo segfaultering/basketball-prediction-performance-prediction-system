@@ -5,8 +5,9 @@ from dataclasses import asdict
 from datetime import UTC, date, datetime
 from pathlib import Path
 
-from .data import NBAClient, read_logs
+from .data import read_logs
 from .model import backtest, predict
+from .providers import create_provider
 
 
 def main():
@@ -53,7 +54,7 @@ def main():
                 "--minutes", type=float, help="Override estimated minutes (0–48)"
             )
     args = parser.parse_args()
-    client = NBAClient(args.cache_dir, args.refresh)
+    client = create_provider(args.cache_dir, args.refresh)
     try:
         if args.command in ("games", "predict"):
             schedule = (
