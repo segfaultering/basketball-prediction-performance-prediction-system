@@ -4,7 +4,7 @@ Predict an NBA player's **points, rebounds, assists, and steals** for a selected
 
 ## Run
 
-Requires Python 3.14 and uv. FastAPI and Uvicorn power the HTTP server.
+Requires Python 3.14 and uv. FastAPI and Uvicorn power the HTTP server; `nba_api` retrieves live NBA data.
 
 ```bash
 uv sync
@@ -31,7 +31,9 @@ uv run bpps backtest --csv examples/history.csv --player-id demo-player
 
 Live mode checks that the game is scheduled, the team participates, and the player is on the team's roster. Roster membership does not guarantee availability or minutes. NBA JSON responses are cached for one hour under `.cache/bpps`. Global `--refresh` bypasses the cache, e.g. `uv run bpps --refresh games --date YYYY-MM-DD`.
 
-NBA endpoints may block or time out. The application reports a clear error rather than substituting fictional data. Live access has not been verified in this environment. The adapters follow [PlayerGameLog](https://github.com/swar/nba_api/blob/master/docs/nba_api/stats/endpoints/playergamelog.md) and [CommonTeamRoster](https://github.com/swar/nba_api/blob/master/docs/nba_api/stats/endpoints/commonteamroster.md) endpoint schemas. Schedule comes from NBA's `scheduleLeagueV2.json` feed.
+Live data is retrieved with the [`nba_api` Python package](https://github.com/swar/nba_api): `ScheduleLeagueV2` for the season schedule, `CommonTeamRoster` for rosters, and `PlayerGameLog` for player history. The package handles NBA headers and endpoint-specific parsing. No API key is required. The schedule defaults to the current season (July-to-June season naming); the games endpoint filters it by UTC date.
+
+Schedule, roster, and history retrieval have been verified against the live service in this environment. NBA endpoints can still block or time out because `nba_api` uses NBA's servers. Failures produce a clear error rather than synthetic fallback data. Responses are cached for one hour, with a separate cache namespace from the old direct-HTTP adapter. Corrupt cached responses are refetched. `STUB_MODE=1` continues to use only local synthetic data and never calls the package's HTTP layer.
 
 ### Your own data
 

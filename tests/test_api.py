@@ -28,8 +28,8 @@ def client(monkeypatch):
     def forbidden(*args, **kwargs):
         pytest.fail("Stub mode attempted an external NBA request")
 
-    monkeypatch.setattr("bpps.data.urlopen", forbidden)
-    monkeypatch.setattr(NBAClient, "fetch", forbidden)
+    monkeypatch.setattr("requests.sessions.Session.request", forbidden)
+    monkeypatch.setattr(NBAClient, "request", forbidden)
     from bpps.api import create_app
 
     with TestClient(create_app()) as test_client:
@@ -157,7 +157,7 @@ def test_bad_env_fails_closed(monkeypatch, value):
 def test_cli_uses_stub(monkeypatch, capsys):
     monkeypatch.setenv("STUB_MODE", "1")
     monkeypatch.setattr(
-        NBAClient, "fetch", lambda *args: pytest.fail("Unexpected HTTP")
+        NBAClient, "request", lambda *args: pytest.fail("Unexpected HTTP")
     )
     monkeypatch.setattr(
         "sys.argv",

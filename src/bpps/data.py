@@ -1,15 +1,16 @@
-"""CSV ingestion and cached NBA JSON access; no third-party dependencies."""
+"""CSV ingestion and cached NBA access through nba_api."""
 
 import csv
 import hashlib
 import json
 import time
+from collections.abc import Callable
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import NotRequired, TypedDict
-from urllib.error import URLError
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from typing import Any, NotRequired, TypedDict
+
+from nba_api.stats.endpoints import commonteamroster, playergamelog, scheduleleaguev2
+from requests.exceptions import RequestException
 
 from .model import GameLog
 
@@ -60,78 +61,94 @@ class NBAClient:
         self.cache_dir = Path(cache_dir)
         self.refresh = refresh
 
-    def fetch(self, url, ttl=3600):
-        path = self.cache_dir / (hashlib.sha256(url.encode()).hexdigest() + ".json")
+    def request(
+        self, endpoint: Callable[..., Any], params: dict, dataset: str, ttl=3600
+    ):
+        # Version the cache namespace so old direct-HTTP payloads are never reused.
+        key = json.dumps(
+            ["nba_api-v1", endpoint.__name__, params, dataset], sort_keys=True
+        )
+        path = self.cache_dir / (hashlib.sha256(key.encode()).hexdigest() + ".json")
         if (
             not self.refresh
             and path.exists()
             and time.time() - path.stat().st_mtime < ttl
         ):
-            return json.loads(path.read_text())
-        request = Request(
-            url,
-            headers={
-                "User-Agent": "Mozilla/5.0",
-                "Referer": "https://www.nba.com/",
-                "Accept": "application/json",
-            },
-        )
+            try:
+                cached = json.loads(path.read_text())
+                if isinstance(cached, list):
+                    return cached
+            except OSError, ValueError:
+                pass  # Corrupt cache entries are refetched.
         try:
-            with urlopen(request, timeout=20) as response:
-                data = json.load(response)
-        except (URLError, TimeoutError, json.JSONDecodeError) as exc:
+            response = endpoint(**params, timeout=20)
+            attribute = {
+                "SeasonGames": "season_games",
+                "CommonTeamRoster": "common_team_roster",
+                "PlayerGameLog": "player_game_log",
+            }[dataset]
+            table = getattr(response, attribute).get_dict()
+            rows = [
+                dict(zip(table["headers"], row, strict=True)) for row in table["data"]
+            ]
+        except (
+            RequestException,
+            TimeoutError,
+            ValueError,
+            KeyError,
+            TypeError,
+            IndexError,
+        ) as exc:
             raise ValueError(
-                f"NBA data unavailable: {exc}. Retry later or use --csv/local schedule."
+                f"NBA data unavailable via nba_api ({dataset}): {exc}. "
+                "The NBA may be blocking requests; retry later or use STUB_MODE=1."
             ) from exc
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data))
-        return data
+        path.write_text(json.dumps(rows))
+        return rows
 
-    def stats(self, endpoint, params, dataset):
-        data = self.fetch(
-            "https://stats.nba.com/stats/" + endpoint + "?" + urlencode(params)
+    def schedule(self, season: str | None = None) -> list[ScheduledGame]:
+        if season is None:
+            today = datetime.now(UTC).date()
+            start = today.year if today.month >= 7 else today.year - 1
+            season = f"{start}-{str(start + 1)[-2:]}"
+        rows = self.request(
+            scheduleleaguev2.ScheduleLeagueV2,
+            {"season": season, "league_id": "00"},
+            "SeasonGames",
         )
-        for table in data["resultSets"]:
-            if table["name"] == dataset:
-                return [dict(zip(table["headers"], row)) for row in table["rowSet"]]
-        raise ValueError(f"NBA response missing {dataset}")
-
-    def schedule(self) -> list[ScheduledGame]:
-        data = self.fetch(
-            "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json"
-        )
-        return [
-            {
-                "game_id": g["gameId"],
-                "date": g["gameDateTimeUTC"][:10],
-                "tipoff_utc": g["gameDateTimeUTC"],
-                "status": g["gameStatus"],
-                "home_team": g["homeTeam"]["teamTricode"],
-                "away_team": g["awayTeam"]["teamTricode"],
-                "home_team_id": str(g["homeTeam"]["teamId"]),
-                "away_team_id": str(g["awayTeam"]["teamId"]),
-            }
-            for day in data["leagueSchedule"]["gameDates"]
-            for g in day["games"]
-        ]
+        try:
+            return [
+                {
+                    "game_id": str(g["gameId"]),
+                    "date": g["gameDateTimeUTC"][:10],
+                    "tipoff_utc": g["gameDateTimeUTC"],
+                    "status": int(g["gameStatus"]),
+                    "home_team": g["homeTeam_teamTricode"],
+                    "away_team": g["awayTeam_teamTricode"],
+                    "home_team_id": str(g["homeTeam_teamId"]),
+                    "away_team_id": str(g["awayTeam_teamId"]),
+                }
+                for g in rows
+            ]
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(f"Invalid NBA schedule response: {exc}") from exc
 
     def roster(self, team_id, season):
-        return self.stats(
-            "commonteamroster",
-            {"TeamID": team_id, "Season": season, "LeagueID": "00"},
+        return self.request(
+            commonteamroster.CommonTeamRoster,
+            {"team_id": team_id, "season": season, "league_id_nullable": "00"},
             "CommonTeamRoster",
         )
 
     def logs(self, player_id, season, season_type="Regular Season"):
-        rows = self.stats(
-            "playergamelog",
+        rows = self.request(
+            playergamelog.PlayerGameLog,
             {
-                "PlayerID": player_id,
-                "Season": season,
-                "SeasonType": season_type,
-                "LeagueID": "00",
-                "DateFrom": "",
-                "DateTo": "",
+                "player_id": player_id,
+                "season": season,
+                "season_type_all_star": season_type,
+                "league_id_nullable": "00",
             },
             "PlayerGameLog",
         )

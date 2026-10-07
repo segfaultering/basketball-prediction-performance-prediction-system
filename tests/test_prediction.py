@@ -78,24 +78,18 @@ def test_nba_schedule_normalization(monkeypatch):
     client = NBAClient()
     monkeypatch.setattr(
         client,
-        "fetch",
-        lambda url: {
-            "leagueSchedule": {
-                "gameDates": [
-                    {
-                        "games": [
-                            {
-                                "gameId": "001",
-                                "gameDateTimeUTC": "2026-10-20T23:30:00Z",
-                                "gameStatus": 1,
-                                "homeTeam": {"teamTricode": "LAL", "teamId": 1},
-                                "awayTeam": {"teamTricode": "BOS", "teamId": 2},
-                            }
-                        ]
-                    }
-                ]
+        "request",
+        lambda *args: [
+            {
+                "gameId": "001",
+                "gameDateTimeUTC": "2026-10-20T23:30:00Z",
+                "gameStatus": 1,
+                "homeTeam_teamTricode": "LAL",
+                "homeTeam_teamId": 1,
+                "awayTeam_teamTricode": "BOS",
+                "awayTeam_teamId": 2,
             }
-        },
+        ],
     )
     assert client.schedule()[0]["date"] == "2026-10-20"
 
