@@ -71,6 +71,7 @@ class StubClient:
                 4 + i % 6,
                 3 + i % 7,
                 i % 4,
+                i % 3,
             )
             for i in range(24)
         ]

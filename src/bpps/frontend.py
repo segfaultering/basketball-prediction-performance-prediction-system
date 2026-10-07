@@ -117,7 +117,7 @@ def build_frontend(service: PredictionService) -> gr.Blocks:
     )
     with gr.Blocks(title="NBA Player Predictions", analytics_enabled=False) as ui:
         gr.Markdown(
-            "# NBA Player Predictions\nChoose a scheduled game and player to estimate points, rebounds, assists, and steals."
+            "# NBA Player Predictions\nChoose a scheduled game and player to estimate points, rebounds, assists, steals, and blocks."
         )
         gr.Markdown(mode)
         games_state = gr.State([])

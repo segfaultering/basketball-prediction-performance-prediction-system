@@ -63,6 +63,7 @@ def test_stub_full_flow_no_network(client):
         "rebounds",
         "assists",
         "steals",
+        "blocks",
     }
     result = client.post(
         "/backtests", json={"player_id": "demo-player", "seasons": [current_season()]}

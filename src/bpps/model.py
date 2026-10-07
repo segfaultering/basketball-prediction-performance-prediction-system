@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import TypedDict
 
-STATS = ("points", "rebounds", "assists", "steals")
+STATS = ("points", "rebounds", "assists", "steals", "blocks")
 
 
 class StatEstimate(TypedDict):
@@ -26,6 +26,7 @@ class GameLog:
     rebounds: float
     assists: float
     steals: float
+    blocks: float
 
     def __post_init__(self):
         if not self.player_id or not self.game_id or not self.team or not self.opponent:

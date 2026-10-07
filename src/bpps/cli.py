@@ -12,7 +12,7 @@ from .providers import create_provider
 
 def main():
     parser = argparse.ArgumentParser(
-        description="NBA player points, rebounds, assists and steals predictions"
+        description="NBA player points, rebounds, assists, steals and blocks predictions"
     )
     parser.add_argument("--cache-dir", help="Override PROJ_DIR/.cache/bpps")
     parser.add_argument(

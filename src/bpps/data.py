@@ -43,7 +43,14 @@ def read_logs(path):
                     row["home"].lower() in ("true", "1"),
                     *(
                         float(row[s])
-                        for s in ("minutes", "points", "rebounds", "assists", "steals")
+                        for s in (
+                            "minutes",
+                            "points",
+                            "rebounds",
+                            "assists",
+                            "steals",
+                            "blocks",
+                        )
                     ),
                 )
                 key = (game.player_id, game.game_id)
@@ -162,7 +169,7 @@ class NBAClient:
                 r["MATCHUP"][:3],
                 r["MATCHUP"][-3:],
                 "vs." in r["MATCHUP"],
-                *(float(r[s]) for s in ("MIN", "PTS", "REB", "AST", "STL")),
+                *(float(r[s]) for s in ("MIN", "PTS", "REB", "AST", "STL", "BLK")),
             )
             for r in rows
         ]

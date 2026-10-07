@@ -23,6 +23,7 @@ def history():
             6,
             5,
             1,
+            2,
         )
         for i in range(12)
     ]
@@ -67,8 +68,8 @@ def test_backtest():
 def test_invalid_csv(tmp_path):
     path = tmp_path / "bad.csv"
     path.write_text(
-        "player_id,game_id,date,team,opponent,home,minutes,points,rebounds,assists,steals\n"
-        "1,1,2025-01-01,LAL,BOS,maybe,30,20,6,5,1\n"
+        "player_id,game_id,date,team,opponent,home,minutes,points,rebounds,assists,steals,blocks\n"
+        "1,1,2025-01-01,LAL,BOS,maybe,30,20,6,5,1,2\n"
     )
     with pytest.raises(ValueError, match="row 2"):
         read_logs(path)
@@ -115,7 +116,7 @@ def test_cli_offline(monkeypatch, capsys):
     assert main() == 0
     result = json.loads(capsys.readouterr().out)
     assert not result["roster_verified"]
-    assert set(result["stats"]) == {"points", "rebounds", "assists", "steals"}
+    assert set(result["stats"]) == {"points", "rebounds", "assists", "steals", "blocks"}
 
 
 def test_invalid_team(monkeypatch, capsys):
@@ -138,3 +139,19 @@ def test_invalid_team(monkeypatch, capsys):
     )
     assert main() == 1
     assert "not participating" in capsys.readouterr().err
+
+
+def test_blocks_prediction_and_backtest():
+    result = predict(history(), "1", date(2025, 2, 1), "BOS", True, 15)
+    assert result["stats"]["blocks"]["prediction"] == 1
+    assert backtest(history(), "1")["stats"]["blocks"]["mae"] == 0
+
+
+def test_missing_blocks_csv_is_rejected(tmp_path):
+    path = tmp_path / "old.csv"
+    path.write_text(
+        "player_id,game_id,date,team,opponent,home,minutes,points,rebounds,assists,steals\n"
+        "1,1,2025-01-01,LAL,BOS,true,30,20,6,5,1\n"
+    )
+    with pytest.raises(ValueError, match="blocks"):
+        read_logs(path)

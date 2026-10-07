@@ -29,7 +29,8 @@ def test_game_to_player_to_prediction(controller):
     rows, details, message = controller.predict(
         "demo-game", "demo-player", "2025-26", True, 32
     )
-    assert len(rows) == 4
+    assert len(rows) == 5
+    assert rows[-1][0] == "Blocks"
     assert details is not None
     assert details["stub_mode"] is True
     assert details["projected_minutes"] == 32

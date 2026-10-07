@@ -1,6 +1,6 @@
 # Basketball Performance Prediction System
 
-Predict an NBA player's **points, rebounds, assists, and steals** for a selected scheduled game. This Python command-line application supports NBA schedule/roster/history retrieval, local CSV history, JSON predictions with approximate ranges, and chronological backtesting against a last-ten-games mean baseline.
+Predict an NBA player's **points, rebounds, assists, steals, and blocks** for a selected scheduled game. This Python command-line application supports NBA schedule/roster/history retrieval, local CSV history, JSON predictions with approximate ranges, and chronological backtesting against a last-ten-games mean baseline.
 
 ## Run
 
@@ -40,10 +40,10 @@ Schedule, roster, and history retrieval have been verified against the live serv
 CSV columns (dates ISO 8601, stats nonnegative, home `true`/`false` or `1`/`0`):
 
 ```text
-player_id,game_id,date,team,opponent,home,minutes,points,rebounds,assists,steals
+player_id,game_id,date,team,opponent,home,minutes,points,rebounds,assists,steals,blocks
 ```
 
-Player and game IDs are strings. Team and opponent should use consistent uppercase NBA tricodes. Duplicate player/game rows are rejected. Zero-minute appearances are excluded; predictions are conditional on playing.
+The `blocks` column is required. Re-download older CSV histories with `bpps sync` to include it. Player and game IDs are strings. Team and opponent should use consistent uppercase NBA tricodes. Duplicate player/game rows are rejected. Zero-minute appearances are excluded; predictions are conditional on playing.
 
 A local schedule is a JSON array:
 
@@ -89,7 +89,7 @@ Stub mode uses an entirely local provider with no NBA requests or cache reads. I
 | GET | `/health` | Service status and active mode; no upstream call |
 | GET | `/games?date=YYYY-MM-DD` | Scheduled games for a UTC date (defaults to today) |
 | GET | `/teams/{team_id}/players?season=2026-27` | Team roster |
-| POST | `/predictions` | Predict all four stats, validating game and roster membership |
+| POST | `/predictions` | Predict all five stats, validating game and roster membership |
 | POST | `/backtests` | Chronological evaluation of the requested player's history |
 
 Try a stub prediction (adjust seasons as appropriate):
@@ -135,6 +135,6 @@ Opening http://127.0.0.1:8000/ redirects to the frontend; REST documentation rem
 2. Select a scheduled game. The player dropdown loads rosters for both teams.
 3. Select a player and choose comma-separated history seasons. The defaults include the current and previous season.
 4. Optionally enable **Set expected minutes** and adjust the slider; otherwise minutes are estimated.
-5. Click **Predict player stats** to see points, rebounds, assists, and steals with approximate ranges. Expand **Prediction details** for the full response.
+5. Click **Predict player stats** to see points, rebounds, assists, steals, and blocks with approximate ranges. Expand **Prediction details** for the full response.
 
 The frontend uses the same prediction service and `.env` settings as the REST API. `STUB_MODE=0` uses real NBA data. For an offline demo, set `STUB_MODE=1`, restart, and choose today's UTC date. Synthetic data is clearly labeled. Missing games and NBA errors are shown in the interface. Loading a different game or player clears previous prediction results. Gradio analytics are disabled; the frontend does not create a public share link.

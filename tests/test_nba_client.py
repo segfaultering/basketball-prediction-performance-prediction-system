@@ -89,6 +89,7 @@ def test_player_history_parameters_and_conversion(tmp_path, monkeypatch):
                         "REB": 8,
                         "AST": 6,
                         "STL": 2,
+                        "BLK": 3,
                     }
                 ]
             )
@@ -98,6 +99,7 @@ def test_player_history_parameters_and_conversion(tmp_path, monkeypatch):
     log = NBAClient(tmp_path).logs("2544", "2025-26", "Playoffs")[0]
     assert log.date.isoformat() == "2025-10-20"
     assert log.game_id == "0022500001"
+    assert log.blocks == 3
     assert log.points == 24
     assert log.opponent == "BOS"
     assert log.home is False
