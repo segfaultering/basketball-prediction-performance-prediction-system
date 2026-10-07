@@ -32,7 +32,7 @@ def client(monkeypatch):
     monkeypatch.setattr(NBAClient, "request", forbidden)
     from bpps.api import create_app
 
-    with TestClient(create_app()) as test_client:
+    with TestClient(create_app(include_ui=False)) as test_client:
         yield test_client
 
 

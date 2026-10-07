@@ -27,7 +27,7 @@ def test_dotenv_loads_from_configured_root(tmp_path, monkeypatch):
     assert isinstance(create_provider(settings=config), StubClient)
     from bpps.api import create_app
 
-    app = create_app(config)
+    app = create_app(config, include_ui=False)
     assert app.debug is True
     assert app.state.settings is config
 

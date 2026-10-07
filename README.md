@@ -119,3 +119,22 @@ With your `.env` configured, start using:
 ```bash
 uv run uvicorn bpps.api:app --reload
 ```
+
+## Gradio frontend
+
+The same FastAPI server now serves a simple frontend at **http://127.0.0.1:8000/ui/**. No second server is required:
+
+```bash
+uv sync
+uv run uvicorn bpps.api:app --reload
+```
+
+Opening http://127.0.0.1:8000/ redirects to the frontend; REST documentation remains at `/docs`.
+
+1. Choose a UTC game date and click **Load games**.
+2. Select a scheduled game. The player dropdown loads rosters for both teams.
+3. Select a player and choose comma-separated history seasons. The defaults include the current and previous season.
+4. Optionally enable **Set expected minutes** and adjust the slider; otherwise minutes are estimated.
+5. Click **Predict player stats** to see points, rebounds, assists, and steals with approximate ranges. Expand **Prediction details** for the full response.
+
+The frontend uses the same prediction service and `.env` settings as the REST API. `STUB_MODE=0` uses real NBA data. For an offline demo, set `STUB_MODE=1`, restart, and choose today's UTC date. Synthetic data is clearly labeled. Missing games and NBA errors are shown in the interface. Loading a different game or player clears previous prediction results. Gradio analytics are disabled; the frontend does not create a public share link.
