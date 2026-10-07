@@ -8,12 +8,12 @@ from .model import GameLog
 
 
 def stub_enabled():
-    value = os.getenv("STUB_MODE", "false").strip().lower()
-    if value in {"1", "true", "yes", "on"}:
+    value = os.getenv("STUB_MODE", "0").strip()
+    if value == "1":
         return True
-    if value in {"0", "false", "no", "off", ""}:
+    if value == "0":
         return False
-    raise ValueError("STUB_MODE must be true/false, 1/0, yes/no, or on/off")
+    raise ValueError("STUB_MODE must be 0 (live NBA data) or 1 (synthetic local data)")
 
 
 class StubClient:

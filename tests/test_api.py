@@ -14,7 +14,7 @@ def current_season():
 
 @pytest.fixture
 def client(monkeypatch):
-    monkeypatch.setenv("STUB_MODE", "true")
+    monkeypatch.setenv("STUB_MODE", "1")
 
     def forbidden(*args, **kwargs):
         pytest.fail("Stub mode attempted an external NBA request")
@@ -124,26 +124,29 @@ def test_upstream_failure(client, monkeypatch):
     assert client.get("/health").status_code == 200
 
 
-@pytest.mark.parametrize("value", ["true", "1", "YES", " on "])
-def test_env_true(monkeypatch, value):
+@pytest.mark.parametrize("value", ["1", " 1 "])
+def test_env_one(monkeypatch, value):
     monkeypatch.setenv("STUB_MODE", value)
     assert isinstance(create_provider(), StubClient)
 
 
-@pytest.mark.parametrize("value", ["false", "0", "no", "off", ""])
-def test_env_false(monkeypatch, value):
+@pytest.mark.parametrize("value", ["0", " 0 "])
+def test_env_zero(monkeypatch, value):
     monkeypatch.setenv("STUB_MODE", value)
     assert isinstance(create_provider(), NBAClient)
 
 
-def test_bad_env_fails_closed(monkeypatch):
-    monkeypatch.setenv("STUB_MODE", "typo")
+@pytest.mark.parametrize(
+    "value", ["true", "false", "yes", "no", "on", "off", "", "2", "typo"]
+)
+def test_bad_env_fails_closed(monkeypatch, value):
+    monkeypatch.setenv("STUB_MODE", value)
     with pytest.raises(ValueError, match="STUB_MODE"):
         create_provider()
 
 
 def test_cli_uses_stub(monkeypatch, capsys):
-    monkeypatch.setenv("STUB_MODE", "true")
+    monkeypatch.setenv("STUB_MODE", "1")
     monkeypatch.setattr(
         NBAClient, "fetch", lambda *args: pytest.fail("Unexpected HTTP")
     )
@@ -155,3 +158,8 @@ def test_cli_uses_stub(monkeypatch, capsys):
 
     assert main() == 0
     assert "demo-player" in capsys.readouterr().out
+
+
+def test_env_unset_defaults_to_live(monkeypatch):
+    monkeypatch.delenv("STUB_MODE", raising=False)
+    assert isinstance(create_provider(), NBAClient)
