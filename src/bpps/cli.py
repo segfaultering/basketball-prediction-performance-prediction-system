@@ -5,7 +5,7 @@ from dataclasses import asdict
 from datetime import UTC, date, datetime
 from pathlib import Path
 
-from .data import read_logs
+from .data import ScheduledGame, read_logs
 from .model import backtest, predict
 from .providers import create_provider
 
@@ -14,7 +14,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="NBA player points, rebounds, assists and steals predictions"
     )
-    parser.add_argument("--cache-dir", default=".cache/bpps")
+    parser.add_argument("--cache-dir", help="Override PROJ_DIR/.cache/bpps")
     parser.add_argument(
         "--refresh", action="store_true", help="Bypass NBA response cache"
     )
@@ -54,8 +54,9 @@ def main():
                 "--minutes", type=float, help="Override estimated minutes (0–48)"
             )
     args = parser.parse_args()
-    client = create_provider(args.cache_dir, args.refresh)
     try:
+        client = create_provider(args.cache_dir, args.refresh)
+        schedule: list[ScheduledGame] = []
         if args.command in ("games", "predict"):
             schedule = (
                 json.loads(args.schedule.read_text())

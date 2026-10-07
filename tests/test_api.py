@@ -4,6 +4,15 @@ import pytest
 from fastapi.testclient import TestClient
 
 from bpps.providers import NBAClient, StubClient, create_provider
+from bpps.settings import Settings
+
+
+@pytest.fixture(autouse=True)
+def isolate_settings(monkeypatch):
+    # Developer .env must not influence unit tests.
+    monkeypatch.setitem(Settings.model_config, "env_file", None)
+    for key in ("STUB_MODE", "DEBUG", "PROJ_DIR"):
+        monkeypatch.delenv(key, raising=False)
 
 
 def current_season():

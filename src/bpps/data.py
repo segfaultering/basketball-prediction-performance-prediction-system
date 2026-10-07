@@ -6,11 +6,23 @@ import json
 import time
 from datetime import UTC, date, datetime
 from pathlib import Path
+from typing import NotRequired, TypedDict
 from urllib.error import URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from .model import GameLog
+
+
+class ScheduledGame(TypedDict):
+    game_id: str
+    date: str
+    status: int
+    home_team: str
+    away_team: str
+    home_team_id: NotRequired[str]
+    away_team_id: NotRequired[str]
+    tipoff_utc: NotRequired[str]
 
 
 def read_logs(path):
@@ -84,7 +96,7 @@ class NBAClient:
                 return [dict(zip(table["headers"], row)) for row in table["rowSet"]]
         raise ValueError(f"NBA response missing {dataset}")
 
-    def schedule(self):
+    def schedule(self) -> list[ScheduledGame]:
         data = self.fetch(
             "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json"
         )

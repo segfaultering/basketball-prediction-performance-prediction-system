@@ -11,3 +11,6 @@ wheels/
 
 # NBA response cache
 .cache/
+
+# Local environment configuration
+.env

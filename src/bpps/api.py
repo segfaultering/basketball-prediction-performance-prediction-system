@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .model import backtest, predict
 from .providers import StubClient, create_provider
+from .settings import Settings
 
 Season = Annotated[str, Field(pattern=r"^\d{4}-\d{2}$")]
 SeasonType = Literal["Regular Season", "Playoffs", "Pre Season"]
@@ -32,15 +33,18 @@ def validate_season(season):
     return season
 
 
-def create_app():
-    provider = create_provider()
+def create_app(settings: Settings | None = None):
+    config = settings if settings is not None else Settings()
+    provider = create_provider(settings=config)
     stub = isinstance(provider, StubClient)
     application = FastAPI(
         title="Basketball Performance Prediction API",
+        debug=config.debug == 1,
         version="0.1.0",
         description="Predictions are conditional on playing. STUB_MODE uses synthetic data.",
     )
     application.state.provider = provider
+    application.state.settings = config
 
     @application.exception_handler(ValueError)
     def upstream_error(request: Request, exc: ValueError):

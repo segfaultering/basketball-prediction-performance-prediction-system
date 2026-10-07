@@ -78,7 +78,7 @@ STUB_MODE=1 uv run uvicorn bpps.api:app --reload
 
 Open http://127.0.0.1:8000/docs for interactive endpoint documentation, or http://127.0.0.1:8000/openapi.json for the OpenAPI schema.
 
-`STUB_MODE=1` enables synthetic local data; `STUB_MODE=0` selects real NBA data. If unset, it defaults to `0`. Only `0` and `1` are accepted. Invalid values fail startup. The server reads this setting at application creation; restart to change modes. CLI commands also honor it. `.env.example` documents the setting; a `.env` file is not loaded automatically. Export the variable or use the inline command above.
+`STUB_MODE=1` enables synthetic local data; `STUB_MODE=0` selects real NBA data. If absent from both the environment and `.env`, it defaults to `0`. Only `0` and `1` are accepted. Invalid values fail startup. The server reads this setting at application creation; restart to change modes. CLI commands also honor it. `pydantic-settings` automatically loads the project-root `.env` for both the API and CLI. Shell environment variables override `.env` values. `.env.example` is a template, not loaded at runtime. Existing `.env` contents are preserved.
 
 Stub mode uses an entirely local provider with no NBA requests or cache reads. It provides today's UTC `demo-game` (LAL versus BOS), players `demo-player` and `demo-celtics-player`, and deterministic synthetic histories. Responses include `stub_mode`; synthetic predictions also contain an explicit warning. The stub schedule date advances daily. Use the corresponding current season, or a previous season, for history.
 
@@ -101,3 +101,19 @@ curl -X POST http://127.0.0.1:8000/predictions \
 For `/backtests`, send `player_id` and `seasons` without `game_id` or `minutes`. Both accept optional `season_type` (`Regular Season`, `Playoffs`, or `Pre Season`). `seasons` accepts one to five season strings; duplicate seasons are fetched once. The API downloads history itself, so no local CSV path is needed. Prediction requests infer the team from the selected game's rosters. Response model details and caveats match the CLI above.
 
 Errors return JSON `detail`: `404` for a missing game/history, `409` for a game already started, `422` for invalid inputs, roster mismatch, or insufficient history, and `502` when NBA data retrieval fails. To use live mode, start with `STUB_MODE=0 uv run uvicorn bpps.api:app --reload`.
+
+### Environment configuration
+
+The shared `Settings` model loads `.env` using UTF-8 from the source project root, regardless of the current working directory. Configure:
+
+- `STUB_MODE=1` for local synthetic data, or `0` for live NBA data.
+- `DEBUG=1` for FastAPI debug mode, or `0` to disable it.
+- `PROJ_DIR=/absolute/path/to/project` for the base directory of the NBA response cache (`PROJ_DIR/.cache/bpps`). The default is the source project root. CLI `--cache-dir` overrides this cache location. `PROJ_DIR` does not relocate the `.env` file.
+
+`STUB_MODE` and `DEBUG` accept only `0` or `1` and default to `0`. Unknown dotenv keys are ignored. Restart the API after changing settings. `.env` is ignored by Git; `.env.example` remains the shared template.
+
+With your `.env` configured, start using:
+
+```bash
+uv run uvicorn bpps.api:app --reload
+```

@@ -1,25 +1,20 @@
 """Choose an entirely local provider when STUB_MODE is enabled."""
 
-import os
 from datetime import UTC, date, datetime, timedelta
 
-from .data import NBAClient
+from .data import NBAClient, ScheduledGame
 from .model import GameLog
+from .settings import Settings
 
 
 def stub_enabled():
-    value = os.getenv("STUB_MODE", "0").strip()
-    if value == "1":
-        return True
-    if value == "0":
-        return False
-    raise ValueError("STUB_MODE must be 0 (live NBA data) or 1 (synthetic local data)")
+    return Settings().stub_mode == 1
 
 
 class StubClient:
     """Synthetic fixtures generated locally; no HTTP or cache access."""
 
-    def schedule(self):
+    def schedule(self) -> list[ScheduledGame]:
         today = datetime.now(UTC).date()
         return [
             {
@@ -81,5 +76,12 @@ class StubClient:
         ]
 
 
-def create_provider(cache_dir=".cache/bpps", refresh=False):
-    return StubClient() if stub_enabled() else NBAClient(cache_dir, refresh)
+def create_provider(cache_dir=None, refresh=False, settings: Settings | None = None):
+    config = settings if settings is not None else Settings()
+    return (
+        StubClient()
+        if config.stub_mode == 1
+        else NBAClient(
+            cache_dir if cache_dir is not None else config.cache_dir, refresh
+        )
+    )

@@ -3,8 +3,14 @@
 import math
 from dataclasses import dataclass
 from datetime import date
+from typing import TypedDict
 
 STATS = ("points", "rebounds", "assists", "steals")
+
+
+class StatEstimate(TypedDict):
+    prediction: float
+    approximate_80pct_range: list[float]
 
 
 @dataclass(frozen=True)
@@ -52,7 +58,7 @@ def predict(logs, player_id, game_date, opponent, home, minutes=None):
         if minutes is not None
         else min(48, sum(g.minutes * w for g, w in zip(history, weights)) / total)
     )
-    output = {}
+    output: dict[str, StatEstimate] = {}
     for stat in STATS:
         rate = sum(getattr(g, stat) * w for g, w in zip(history, weights)) / sum(
             g.minutes * w for g, w in zip(history, weights)
