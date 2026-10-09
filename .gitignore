@@ -12,5 +12,8 @@ wheels/
 # NBA response cache
 .cache/
 
+# Notebook checkpoints
+.ipynb_checkpoints/
+
 # Local environment configuration
 .env

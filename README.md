@@ -65,8 +65,64 @@ Backtesting uses expanding historical windows, never the actual target-game minu
 
 ```bash
 uv run pytest -q
+uv run pyrefly check
 uv run ruff check src tests
 uv run ruff format --check src tests
+```
+
+## Baseline research notebook
+
+[`notebooks/player_baseline.ipynb`](notebooks/player_baseline.ipynb) compares
+historical/season per-minute blends for **points, rebounds, and assists**. It
+defaults to Stephen Curry (`201939`), fetching regular-season history from
+`2009-10` through `2025-26`. Full prior-career and previous-three-season rates
+compete with fixed and adaptive season weights. Weights are selected separately
+for each stat on `2023-24` and `2024-25`; `2025-26` is evaluated afterward without
+retuning. Every prediction uses only earlier dates and estimated minutes.
+
+Install the optional research tools and open JupyterLab:
+
+```bash
+uv sync --group research
+uv run --group research jupyter lab notebooks/player_baseline.ipynb
+```
+
+Run the entire notebook from a fresh kernel without editing its default parameters:
+
+```bash
+# Offline workflow verification, explicitly synthetic:
+uv run --group research python scripts/run_baseline_notebook.py --source synthetic
+
+# Real NBA experiment (no synthetic fallback):
+uv run --group research python scripts/run_baseline_notebook.py --source nba
+```
+
+Executed copies are saved under `.cache/bpps/research/`. Each experiment also
+saves selected parameters, dataset identity, metrics, per-game holdout predictions,
+and four standalone plots. Complete NBA history snapshots are retained there;
+`--refresh` downloads again. Retrieval failures stop the experiment and preserve
+the notebook error output. Synthetic results do not establish NBA accuracy.
+
+The runner supports `--source csv --csv history.csv`, `--player-id`,
+`--first-season`, `--last-season`, `--tuning-seasons`, `--holdout-season`, and
+`--output`. Notebook parameters expose the same controls. For another player,
+set the first career season appropriately; CSV career comparisons require
+complete historical data. Requested-season counts are shown before evaluation.
+These explicit research sources are independent of application `STUB_MODE`.
+
+The experiment reports MAE, RMSE, and minutes-estimation error against the existing
+application model and last-ten-game average on identical eligible games. It
+reports both improvements and losses. Predictions remain conditional on playing;
+the proposed blends do not add opponent adjustments or change the CLI, API, or
+frontend. Reusable calculations live in `bpps.baseline_research`. If you adjust
+the formula after inspecting holdout results, reserve a new untouched period for
+final evaluation.
+
+Research checks additionally include:
+
+```bash
+uv run --group research ruff check scripts notebooks
+uv run --group research ruff format --check scripts notebooks
 ```
 
 ## FastAPI server
