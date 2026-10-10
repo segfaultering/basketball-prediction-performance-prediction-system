@@ -34,3 +34,7 @@ class Settings(BaseSettings):
     @property
     def cache_dir(self) -> Path:
         return self.proj_dir / ".cache" / "bpps"
+
+    @property
+    def forecast_db(self) -> Path:
+        return self.proj_dir / "data" / "bpps" / "forecasts.sqlite3"

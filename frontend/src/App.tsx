@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ForecastTracking from "./ForecastTracking";
 import {
   Activity,
   ArrowDownRight,
@@ -252,7 +253,15 @@ function StatCard({ stat, result }: { stat: Stat; result: Prediction | null }) {
 }
 
 export default function App() {
-  const [view, setView] = useState<"predictions" | "insights">("predictions");
+  const [view, setView] = useState<"predictions" | "insights" | "tracking">(
+    "predictions",
+  );
+  const viewTitle =
+    view === "tracking"
+      ? "Forecast history"
+      : view === "insights"
+        ? "Model insights"
+        : "Player predictions";
   const [help, setHelp] = useState(false);
   const [date, setDate] = useState(utcToday);
   const [refresh, setRefresh] = useState(0);
@@ -486,6 +495,12 @@ export default function App() {
             <CircleHelp size={18} />
             How it works
           </button>
+          <button
+            className={view === "tracking" ? "active" : ""}
+            onClick={() => setView("tracking")}
+          >
+            <Activity size={18} /> Forecast history
+          </button>
         </nav>
         <div className="sidebar-note">
           <Court />
@@ -517,11 +532,10 @@ export default function App() {
         <header className="page-header">
           <div>
             <div className="breadcrumb">
-              Workspace <ChevronRight size={12} />{" "}
-              {view === "predictions" ? "Player predictions" : "Model insights"}
+              Workspace <ChevronRight size={12} /> {viewTitle}
             </div>
             <h1>
-              {view === "predictions" ? "Player predictions" : "Model insights"}
+              {viewTitle}
               <span className="title-dot">.</span>
             </h1>
           </div>
@@ -584,574 +598,600 @@ export default function App() {
           </section>
         )}
 
-        <section className="schedule-section" aria-label="Scheduled games">
-          <div className="section-heading">
-            <StepTitle
-              step="01"
-              title="Set the stage"
-              subtitle="Pick a scheduled matchup. All times are UTC."
-            />
-            <div className="date-controls">
-              <button
-                className="icon-button"
-                aria-label="Previous day"
-                onClick={() => setDate(shiftDate(date, -1))}
-              >
-                <ChevronLeft size={17} />
-              </button>
-              <label className="date-picker">
-                <CalendarDays size={15} />
-                <input
-                  aria-label="Game date (UTC)"
-                  type="date"
-                  value={date}
-                  onChange={(e) => {
-                    if (e.target.value) setDate(e.target.value);
-                  }}
+        {view === "tracking" ? (
+          <ForecastTracking />
+        ) : (
+          <>
+            <section className="schedule-section" aria-label="Scheduled games">
+              <div className="section-heading">
+                <StepTitle
+                  step="01"
+                  title="Set the stage"
+                  subtitle="Pick a scheduled matchup. All times are UTC."
                 />
-              </label>
-              <button
-                className="icon-button"
-                aria-label="Next day"
-                onClick={() => setDate(shiftDate(date, 1))}
-              >
-                <ChevronRight size={17} />
-              </button>
-              <button
-                className="today-button"
-                onClick={() => setDate(utcToday())}
-              >
-                Today
-              </button>
-              <button
-                className="icon-button"
-                aria-label="Refresh games"
-                onClick={() => setRefresh((n) => n + 1)}
-                disabled={gamesBusy}
-              >
-                <RefreshCw size={16} className={gamesBusy ? "spin" : ""} />
-              </button>
-            </div>
-          </div>
-          {gamesError ? (
-            <ErrorNotice
-              message={gamesError}
-              retry={() => setRefresh((n) => n + 1)}
-            />
-          ) : gamesBusy ? (
-            <div className="schedule-empty">
-              <LoaderCircle className="spin" size={20} />
-              Loading scheduled games…
-            </div>
-          ) : !games.length ? (
-            <div className="schedule-empty">
-              <CalendarDays size={22} />
-              <div>
-                <strong>No scheduled games on {prettyDate(date)}.</strong>
-                <p>Try another date to find an upcoming matchup.</p>
-              </div>
-            </div>
-          ) : (
-            <div className="games-strip">
-              {games.map((g) => (
-                <button
-                  key={g.game_id}
-                  className={`game-card ${g.game_id === gameId ? "selected" : ""}`}
-                  aria-pressed={g.game_id === gameId}
-                  onClick={() => setGameId(g.game_id)}
-                >
-                  <div className="game-card-top">
-                    <span>
-                      <span className="small-dot" />
-                      SCHEDULED
-                    </span>
-                    <span>{tipoff(g)}</span>
-                  </div>
-                  <div className="matchup">
-                    <TeamBadge team={g.away_team} />
-                    <span className="matchup-at">at</span>
-                    <TeamBadge team={g.home_team} />
-                    {g.game_id === gameId && (
-                      <span className="game-check">
-                        <Check size={14} />
-                      </span>
-                    )}
-                  </div>
-                  <div className="game-card-bottom">
-                    {g.away_team} away <span>·</span> {g.home_team} home
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <div className="workspace-grid">
-          <section className="selection-panel panel">
-            <StepTitle
-              step="02"
-              title="Choose your player"
-              subtitle="Find a player from either team’s roster."
-            />
-            <div className="search-field">
-              <Search size={17} />
-              <input
-                aria-label="Search players"
-                placeholder="Search players…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                disabled={!game || playersBusy}
-              />
-              <kbd>⌕</kbd>
-            </div>
-            {game && (
-              <div className="team-filters" aria-label="Filter players by team">
-                {["all", game.away_team, game.home_team].map((team) => (
+                <div className="date-controls">
                   <button
-                    key={team}
-                    className={teamFilter === team ? "active" : ""}
-                    onClick={() => setTeamFilter(team)}
+                    className="icon-button"
+                    aria-label="Previous day"
+                    onClick={() => setDate(shiftDate(date, -1))}
                   >
-                    {team === "all" ? "Both teams" : team}
+                    <ChevronLeft size={17} />
                   </button>
-                ))}
+                  <label className="date-picker">
+                    <CalendarDays size={15} />
+                    <input
+                      aria-label="Game date (UTC)"
+                      type="date"
+                      value={date}
+                      onChange={(e) => {
+                        if (e.target.value) setDate(e.target.value);
+                      }}
+                    />
+                  </label>
+                  <button
+                    className="icon-button"
+                    aria-label="Next day"
+                    onClick={() => setDate(shiftDate(date, 1))}
+                  >
+                    <ChevronRight size={17} />
+                  </button>
+                  <button
+                    className="today-button"
+                    onClick={() => setDate(utcToday())}
+                  >
+                    Today
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label="Refresh games"
+                    onClick={() => setRefresh((n) => n + 1)}
+                    disabled={gamesBusy}
+                  >
+                    <RefreshCw size={16} className={gamesBusy ? "spin" : ""} />
+                  </button>
+                </div>
               </div>
-            )}
-            <div className="roster-list" aria-label="Player roster">
-              {playersError ? (
+              {gamesError ? (
                 <ErrorNotice
-                  message={playersError}
-                  retry={() => setRosterRefresh((n) => n + 1)}
+                  message={gamesError}
+                  retry={() => setRefresh((n) => n + 1)}
                 />
-              ) : playersBusy ? (
-                <div className="roster-placeholder">
+              ) : gamesBusy ? (
+                <div className="schedule-empty">
                   <LoaderCircle className="spin" size={20} />
-                  Loading the rosters…
+                  Loading scheduled games…
                 </div>
-              ) : !game ? (
-                <div className="roster-placeholder">
-                  Select a scheduled game first.
-                </div>
-              ) : !filteredPlayers.length ? (
-                <div className="roster-placeholder">
-                  {players.length
-                    ? "No players match your search."
-                    : "No roster players returned for this game."}
-                </div>
-              ) : (
-                filteredPlayers.map((p) => (
-                  <button
-                    key={`${p.team}-${p.PLAYER_ID}`}
-                    className={`player-option ${String(p.PLAYER_ID) === playerId ? "selected" : ""}`}
-                    aria-pressed={String(p.PLAYER_ID) === playerId}
-                    onClick={() => setPlayerId(String(p.PLAYER_ID))}
-                  >
-                    <span
-                      className="player-avatar"
-                      style={
-                        {
-                          "--team-color": teamColor(p.team),
-                        } as React.CSSProperties
-                      }
-                    >
-                      {initials(p.PLAYER)}
-                    </span>
-                    <span className="player-name">
-                      {p.PLAYER}
-                      <small>
-                        {p.team}
-                        {p.POSITION ? ` · ${p.POSITION}` : ""}
-                      </small>
-                    </span>
-                    <span className="player-radio">
-                      {String(p.PLAYER_ID) === playerId && <Check size={12} />}
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-            <div className="minutes-control">
-              <div>
-                <span className="control-heading">
-                  <Clock3 size={16} />
-                  Expected minutes
-                </span>
-                <label className="switch">
-                  <input
-                    aria-label="Set expected minutes"
-                    type="checkbox"
-                    checked={override}
-                    onChange={(e) => setOverride(e.target.checked)}
-                  />
-                  <span />
-                </label>
-              </div>
-              {override ? (
-                <>
-                  <div className="minutes-value">
-                    <strong>{minutes}</strong>
-                    <span>minutes on the court</span>
-                  </div>
-                  <input
-                    aria-label="Expected minutes"
-                    type="range"
-                    min="0"
-                    max="48"
-                    value={minutes}
-                    onChange={(e) => setMinutes(Number(e.target.value))}
-                  />
-                  <div className="slider-labels">
-                    <span>0 min</span>
-                    <span>48 min</span>
-                  </div>
-                </>
-              ) : (
-                <p>Estimated automatically from recent playing time.</p>
-              )}
-            </div>
-            <details className="advanced-options">
-              <summary>
-                <SlidersHorizontal size={14} />
-                History options
-              </summary>
-              <label>
-                History seasons
-                <input
-                  placeholder="Full career (automatic)"
-                  value={seasons}
-                  onChange={(e) => setSeasons(e.target.value)}
-                />
-              </label>
-              <p>Optional override, e.g. 2024-25, 2025-26.</p>
-            </details>
-            <button
-              className="predict-button"
-              disabled={
-                !game || !player || predictionBusy || playersBusy || gamesBusy
-              }
-              onClick={predict}
-            >
-              {predictionBusy ? (
-                <>
-                  <LoaderCircle size={18} className="spin" />
-                  Building your prediction…
-                </>
-              ) : (
-                <>
-                  <Sparkles size={17} />
-                  Generate prediction
-                  <ArrowRight size={17} />
-                </>
-              )}
-            </button>
-            <p className="selection-footnote">
-              <ShieldCheck size={12} />
-              History is retrieved and models are trained for you.
-            </p>
-          </section>
-
-          <section
-            className="forecast-panel"
-            aria-label="Player forecast"
-            aria-busy={predictionBusy}
-          >
-            <div className="forecast-heading">
-              <StepTitle
-                step="03"
-                title={
-                  view === "predictions"
-                    ? "The player forecast"
-                    : "Behind the prediction"
-                }
-                subtitle={
-                  player
-                    ? `${player.PLAYER} · ${player.team}${game ? ` vs ${player.team === game.home_team ? game.away_team : game.home_team}` : ""}`
-                    : "Select a player to get a clearer picture."
-                }
-              />
-              {result && (
-                <button
-                  className="icon-button"
-                  aria-label="Download prediction JSON"
-                  onClick={download}
-                >
-                  <Download size={17} />
-                </button>
-              )}
-            </div>
-            {predictionError && (
-              <ErrorNotice message={predictionError} retry={predict} />
-            )}
-            {predictionBusy && (
-              <div className="training-notice" role="status">
-                <LoaderCircle className="spin" size={18} />
-                <div>
-                  <strong>Putting the history to work.</strong>
-                  <p>
-                    We’re retrieving games and preparing this player’s model.
-                    The first prediction may take a little longer.
-                  </p>
-                </div>
-              </div>
-            )}
-            {!result && !predictionBusy && (
-              <div className="forecast-empty">
-                <span className="empty-icon">
-                  <Target size={25} />
-                </span>
-                <div>
-                  <strong>
-                    {player
-                      ? "Ready when you are."
-                      : "One player. A world of possibility."}
-                  </strong>
-                  <p>
-                    {player
-                      ? "Generate a prediction to see projected stats and their historical baseline."
-                      : "Choose a player, then let their history do the talking."}
-                  </p>
-                </div>
-              </div>
-            )}
-            {result && (
-              <div className="forecast-meta">
-                <span>
-                  <Clock3 size={14} />
-                  <strong>{number(result.projected_minutes)}</strong> expected
-                  minutes
-                </span>
-                <span>
-                  <Activity size={14} />
-                  <strong>{result.history_games}</strong> historical games
-                </span>
-                <span className="forecast-date">
-                  {prettyDate(result.game_date)}
-                </span>
-              </div>
-            )}
-            {view === "predictions" ? (
-              <>
-                <div className="primary-stats">
-                  {(["points", "rebounds", "assists"] as Stat[]).map((stat) => (
-                    <StatCard key={stat} stat={stat} result={result} />
-                  ))}
-                </div>
-                <div className="secondary-stats">
-                  {(["steals", "blocks"] as Stat[]).map((stat) => (
-                    <div key={stat}>
-                      <span className="secondary-icon">
-                        <ShieldCheck size={18} />
-                      </span>
-                      <div>
-                        <span>{LABELS[stat]}</span>
-                        <strong>
-                          {result ? number(result.stats[stat].prediction) : "—"}
-                        </strong>
-                      </div>
-                      <span className="secondary-range">
-                        {result
-                          ? `${number(result.stats[stat].approximate_80pct_range[0])} – ${number(result.stats[stat].approximate_80pct_range[1])}`
-                          : "Awaiting prediction"}
-                        <small>
-                          {result
-                            ? "approximate 80% range"
-                            : "Your supporting stats"}
-                        </small>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <div className="legend">
-                  <span>
-                    <i className="legend-orange" />
-                    Final prediction
-                  </span>
-                  <span>
-                    <i className="legend-gray" />
-                    Historical baseline
-                  </span>
-                  <button onClick={() => setView("insights")}>
-                    Explore model insights <ArrowUpRight size={13} />
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="insights-panel panel">
-                <div className="insights-intro">
-                  <BarChart3 size={22} />
+              ) : !games.length ? (
+                <div className="schedule-empty">
+                  <CalendarDays size={22} />
                   <div>
-                    <h3>A correction has to earn its place.</h3>
-                    <p>
-                      Each stat keeps its baseline unless the learned correction
-                      improves average error on later historical games.
-                    </p>
+                    <strong>No scheduled games on {prettyDate(date)}.</strong>
+                    <p>Try another date to find an upcoming matchup.</p>
                   </div>
                 </div>
-                {result ? (
-                  <>
-                    <div className="model-status-row">
-                      <span className="tag">
-                        {result.model.status === "trained"
-                          ? "Models trained"
-                          : "Baseline only"}
-                      </span>
-                      <span>
-                        {result.model.evaluation
-                          ? `${result.model.evaluation.validation_games} validation games`
-                          : "More history needed to validate corrections"}
-                      </span>
-                    </div>
-                    <div className="table-scroll">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Stat</th>
-                            <th>Baseline MAE</th>
-                            <th>Model MAE</th>
-                            <th>Used</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(["points", "rebounds", "assists"] as Stat[]).map(
-                            (s) => {
-                              const model = result.model.stats[s];
-                              return (
-                                <tr key={s}>
-                                  <th>{LABELS[s]}</th>
-                                  <td>
-                                    {model?.baseline_mae !== undefined
-                                      ? number(model.baseline_mae)
-                                      : "—"}
-                                  </td>
-                                  <td>
-                                    {model?.model_mae !== undefined
-                                      ? number(model.model_mae)
-                                      : "—"}
-                                  </td>
-                                  <td>
-                                    <span
-                                      className={`tag ${model?.active ? "positive" : ""}`}
-                                    >
-                                      {model?.active
-                                        ? "Correction"
-                                        : "Baseline"}
-                                    </span>
-                                  </td>
-                                </tr>
-                              );
-                            },
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                    <p className="table-note">
-                      MAE = average absolute error. Lower is better. These
-                      results guide model selection; they don’t guarantee future
-                      accuracy.
-                    </p>
-                  </>
-                ) : (
-                  <p className="table-note">
-                    Generate a prediction to see this player’s validation
-                    results.
-                  </p>
-                )}
-                <div className="evaluation-section">
-                  <h3>Put it to the test</h3>
-                  <p>
-                    Replay earlier games using only the history available before
-                    each matchup. Full-career evaluation can take several
-                    minutes.
-                  </p>
-                  <button
-                    className="outline-button"
-                    onClick={evaluate}
-                    disabled={!player || backtestBusy}
-                  >
-                    {backtestBusy ? (
-                      <LoaderCircle className="spin" size={15} />
-                    ) : (
-                      <Activity size={15} />
-                    )}
-                    {backtestBusy
-                      ? "Evaluating historical games…"
-                      : "Run chronological backtest"}
-                  </button>
-                  {backtestError && <ErrorNotice message={backtestError} />}
-                  {backtest && (
-                    <>
-                      <p className="evaluation-count">
-                        {backtest.evaluated_games} games evaluated
-                        {backtest.stub_mode ? " · Synthetic data" : ""}
-                      </p>
-                      <div className="table-scroll">
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>Stat</th>
-                              <th>Prediction MAE</th>
-                              <th>Baseline MAE</th>
-                              <th>RMSE</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {STATS.map((s) => (
-                              <tr key={s}>
-                                <th>{LABELS[s]}</th>
-                                <td>{number(backtest.stats[s].mae)}</td>
-                                <td>
-                                  {number(
-                                    backtest.stats[s].blended_baseline_mae,
-                                  )}
-                                </td>
-                                <td>{number(backtest.stats[s].rmse)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+              ) : (
+                <div className="games-strip">
+                  {games.map((g) => (
+                    <button
+                      key={g.game_id}
+                      className={`game-card ${g.game_id === gameId ? "selected" : ""}`}
+                      aria-pressed={g.game_id === gameId}
+                      onClick={() => setGameId(g.game_id)}
+                    >
+                      <div className="game-card-top">
+                        <span>
+                          <span className="small-dot" />
+                          SCHEDULED
+                        </span>
+                        <span>{tipoff(g)}</span>
                       </div>
-                    </>
+                      <div className="matchup">
+                        <TeamBadge team={g.away_team} />
+                        <span className="matchup-at">at</span>
+                        <TeamBadge team={g.home_team} />
+                        {g.game_id === gameId && (
+                          <span className="game-check">
+                            <Check size={14} />
+                          </span>
+                        )}
+                      </div>
+                      <div className="game-card-bottom">
+                        {g.away_team} away <span>·</span> {g.home_team} home
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <div className="workspace-grid">
+              <section className="selection-panel panel">
+                <StepTitle
+                  step="02"
+                  title="Choose your player"
+                  subtitle="Find a player from either team’s roster."
+                />
+                <div className="search-field">
+                  <Search size={17} />
+                  <input
+                    aria-label="Search players"
+                    placeholder="Search players…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    disabled={!game || playersBusy}
+                  />
+                  <kbd>⌕</kbd>
+                </div>
+                {game && (
+                  <div
+                    className="team-filters"
+                    aria-label="Filter players by team"
+                  >
+                    {["all", game.away_team, game.home_team].map((team) => (
+                      <button
+                        key={team}
+                        className={teamFilter === team ? "active" : ""}
+                        onClick={() => setTeamFilter(team)}
+                      >
+                        {team === "all" ? "Both teams" : team}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="roster-list" aria-label="Player roster">
+                  {playersError ? (
+                    <ErrorNotice
+                      message={playersError}
+                      retry={() => setRosterRefresh((n) => n + 1)}
+                    />
+                  ) : playersBusy ? (
+                    <div className="roster-placeholder">
+                      <LoaderCircle className="spin" size={20} />
+                      Loading the rosters…
+                    </div>
+                  ) : !game ? (
+                    <div className="roster-placeholder">
+                      Select a scheduled game first.
+                    </div>
+                  ) : !filteredPlayers.length ? (
+                    <div className="roster-placeholder">
+                      {players.length
+                        ? "No players match your search."
+                        : "No roster players returned for this game."}
+                    </div>
+                  ) : (
+                    filteredPlayers.map((p) => (
+                      <button
+                        key={`${p.team}-${p.PLAYER_ID}`}
+                        className={`player-option ${String(p.PLAYER_ID) === playerId ? "selected" : ""}`}
+                        aria-pressed={String(p.PLAYER_ID) === playerId}
+                        onClick={() => setPlayerId(String(p.PLAYER_ID))}
+                      >
+                        <span
+                          className="player-avatar"
+                          style={
+                            {
+                              "--team-color": teamColor(p.team),
+                            } as React.CSSProperties
+                          }
+                        >
+                          {initials(p.PLAYER)}
+                        </span>
+                        <span className="player-name">
+                          {p.PLAYER}
+                          <small>
+                            {p.team}
+                            {p.POSITION ? ` · ${p.POSITION}` : ""}
+                          </small>
+                        </span>
+                        <span className="player-radio">
+                          {String(p.PLAYER_ID) === playerId && (
+                            <Check size={12} />
+                          )}
+                        </span>
+                      </button>
+                    ))
                   )}
                 </div>
-              </div>
-            )}
-            <div className="forecast-note">
-              <Info size={16} />
-              <p>
-                Predictions assume the player participates. Ranges are
-                approximate and uncalibrated; injuries, lineups, and pace aren’t
-                included.
-              </p>
-            </div>
-            {result?.stub_mode && (
-              <div className="synthetic-notice">
-                <span className="orange-dot" />
-                Synthetic demonstration data. This is not a real NBA forecast.
-              </div>
-            )}
-            {result && (
-              <details className="prediction-details">
-                <summary>
-                  Prediction details <ChevronRight size={14} />
-                </summary>
-                <div className="details-metadata">
-                  <span>
-                    Latest game: {prettyDate(result.last_history_date)}
-                  </span>
-                  <span>
-                    {result.model.cache_hit
-                      ? "Saved model reused"
-                      : "Model prepared from history"}
-                  </span>
+                <div className="minutes-control">
+                  <div>
+                    <span className="control-heading">
+                      <Clock3 size={16} />
+                      Expected minutes
+                    </span>
+                    <label className="switch">
+                      <input
+                        aria-label="Set expected minutes"
+                        type="checkbox"
+                        checked={override}
+                        onChange={(e) => setOverride(e.target.checked)}
+                      />
+                      <span />
+                    </label>
+                  </div>
+                  {override ? (
+                    <>
+                      <div className="minutes-value">
+                        <strong>{minutes}</strong>
+                        <span>minutes on the court</span>
+                      </div>
+                      <input
+                        aria-label="Expected minutes"
+                        type="range"
+                        min="0"
+                        max="48"
+                        value={minutes}
+                        onChange={(e) => setMinutes(Number(e.target.value))}
+                      />
+                      <div className="slider-labels">
+                        <span>0 min</span>
+                        <span>48 min</span>
+                      </div>
+                    </>
+                  ) : (
+                    <p>Estimated automatically from recent playing time.</p>
+                  )}
                 </div>
-                {result.warnings.map((warning) => (
-                  <p key={warning}>{warning}</p>
-                ))}
-                <pre>{JSON.stringify(result, null, 2)}</pre>
-              </details>
-            )}
-          </section>
-        </div>
+                <details className="advanced-options">
+                  <summary>
+                    <SlidersHorizontal size={14} />
+                    History options
+                  </summary>
+                  <label>
+                    History seasons
+                    <input
+                      placeholder="Full career (automatic)"
+                      value={seasons}
+                      onChange={(e) => setSeasons(e.target.value)}
+                    />
+                  </label>
+                  <p>Optional override, e.g. 2024-25, 2025-26.</p>
+                </details>
+                <button
+                  className="predict-button"
+                  disabled={
+                    !game ||
+                    !player ||
+                    predictionBusy ||
+                    playersBusy ||
+                    gamesBusy
+                  }
+                  onClick={predict}
+                >
+                  {predictionBusy ? (
+                    <>
+                      <LoaderCircle size={18} className="spin" />
+                      Building your prediction…
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={17} />
+                      Generate prediction
+                      <ArrowRight size={17} />
+                    </>
+                  )}
+                </button>
+                <p className="selection-footnote">
+                  <ShieldCheck size={12} />
+                  History is retrieved and models are trained for you.
+                </p>
+              </section>
+
+              <section
+                className="forecast-panel"
+                aria-label="Player forecast"
+                aria-busy={predictionBusy}
+              >
+                <div className="forecast-heading">
+                  <StepTitle
+                    step="03"
+                    title={
+                      view === "predictions"
+                        ? "The player forecast"
+                        : "Behind the prediction"
+                    }
+                    subtitle={
+                      player
+                        ? `${player.PLAYER} · ${player.team}${game ? ` vs ${player.team === game.home_team ? game.away_team : game.home_team}` : ""}`
+                        : "Select a player to get a clearer picture."
+                    }
+                  />
+                  {result && (
+                    <button
+                      className="icon-button"
+                      aria-label="Download prediction JSON"
+                      onClick={download}
+                    >
+                      <Download size={17} />
+                    </button>
+                  )}
+                </div>
+                {predictionError && (
+                  <ErrorNotice message={predictionError} retry={predict} />
+                )}
+                {predictionBusy && (
+                  <div className="training-notice" role="status">
+                    <LoaderCircle className="spin" size={18} />
+                    <div>
+                      <strong>Putting the history to work.</strong>
+                      <p>
+                        We’re retrieving games and preparing this player’s
+                        model. The first prediction may take a little longer.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {!result && !predictionBusy && (
+                  <div className="forecast-empty">
+                    <span className="empty-icon">
+                      <Target size={25} />
+                    </span>
+                    <div>
+                      <strong>
+                        {player
+                          ? "Ready when you are."
+                          : "One player. A world of possibility."}
+                      </strong>
+                      <p>
+                        {player
+                          ? "Generate a prediction to see projected stats and their historical baseline."
+                          : "Choose a player, then let their history do the talking."}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {result && (
+                  <div className="forecast-meta">
+                    {result.forecast_id && (
+                      <span>
+                        <Check size={14} /> Saved to forecast history
+                      </span>
+                    )}
+                    <span>
+                      <Clock3 size={14} />
+                      <strong>{number(result.projected_minutes)}</strong>{" "}
+                      expected minutes
+                    </span>
+                    <span>
+                      <Activity size={14} />
+                      <strong>{result.history_games}</strong> historical games
+                    </span>
+                    <span className="forecast-date">
+                      {prettyDate(result.game_date)}
+                    </span>
+                  </div>
+                )}
+                {view === "predictions" ? (
+                  <>
+                    <div className="primary-stats">
+                      {(["points", "rebounds", "assists"] as Stat[]).map(
+                        (stat) => (
+                          <StatCard key={stat} stat={stat} result={result} />
+                        ),
+                      )}
+                    </div>
+                    <div className="secondary-stats">
+                      {(["steals", "blocks"] as Stat[]).map((stat) => (
+                        <div key={stat}>
+                          <span className="secondary-icon">
+                            <ShieldCheck size={18} />
+                          </span>
+                          <div>
+                            <span>{LABELS[stat]}</span>
+                            <strong>
+                              {result
+                                ? number(result.stats[stat].prediction)
+                                : "—"}
+                            </strong>
+                          </div>
+                          <span className="secondary-range">
+                            {result
+                              ? `${number(result.stats[stat].approximate_80pct_range[0])} – ${number(result.stats[stat].approximate_80pct_range[1])}`
+                              : "Awaiting prediction"}
+                            <small>
+                              {result
+                                ? "approximate 80% range"
+                                : "Your supporting stats"}
+                            </small>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="legend">
+                      <span>
+                        <i className="legend-orange" />
+                        Final prediction
+                      </span>
+                      <span>
+                        <i className="legend-gray" />
+                        Historical baseline
+                      </span>
+                      <button onClick={() => setView("insights")}>
+                        Explore model insights <ArrowUpRight size={13} />
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="insights-panel panel">
+                    <div className="insights-intro">
+                      <BarChart3 size={22} />
+                      <div>
+                        <h3>A correction has to earn its place.</h3>
+                        <p>
+                          Each stat keeps its baseline unless the learned
+                          correction improves average error on later historical
+                          games.
+                        </p>
+                      </div>
+                    </div>
+                    {result ? (
+                      <>
+                        <div className="model-status-row">
+                          <span className="tag">
+                            {result.model.status === "trained"
+                              ? "Models trained"
+                              : "Baseline only"}
+                          </span>
+                          <span>
+                            {result.model.evaluation
+                              ? `${result.model.evaluation.validation_games} validation games`
+                              : "More history needed to validate corrections"}
+                          </span>
+                        </div>
+                        <div className="table-scroll">
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Stat</th>
+                                <th>Baseline MAE</th>
+                                <th>Model MAE</th>
+                                <th>Used</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(
+                                ["points", "rebounds", "assists"] as Stat[]
+                              ).map((s) => {
+                                const model = result.model.stats[s];
+                                return (
+                                  <tr key={s}>
+                                    <th>{LABELS[s]}</th>
+                                    <td>
+                                      {model?.baseline_mae !== undefined
+                                        ? number(model.baseline_mae)
+                                        : "—"}
+                                    </td>
+                                    <td>
+                                      {model?.model_mae !== undefined
+                                        ? number(model.model_mae)
+                                        : "—"}
+                                    </td>
+                                    <td>
+                                      <span
+                                        className={`tag ${model?.active ? "positive" : ""}`}
+                                      >
+                                        {model?.active
+                                          ? "Correction"
+                                          : "Baseline"}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                        <p className="table-note">
+                          MAE = average absolute error. Lower is better. These
+                          results guide model selection; they don’t guarantee
+                          future accuracy.
+                        </p>
+                      </>
+                    ) : (
+                      <p className="table-note">
+                        Generate a prediction to see this player’s validation
+                        results.
+                      </p>
+                    )}
+                    <div className="evaluation-section">
+                      <h3>Put it to the test</h3>
+                      <p>
+                        Replay earlier games using only the history available
+                        before each matchup. Full-career evaluation can take
+                        several minutes.
+                      </p>
+                      <button
+                        className="outline-button"
+                        onClick={evaluate}
+                        disabled={!player || backtestBusy}
+                      >
+                        {backtestBusy ? (
+                          <LoaderCircle className="spin" size={15} />
+                        ) : (
+                          <Activity size={15} />
+                        )}
+                        {backtestBusy
+                          ? "Evaluating historical games…"
+                          : "Run chronological backtest"}
+                      </button>
+                      {backtestError && <ErrorNotice message={backtestError} />}
+                      {backtest && (
+                        <>
+                          <p className="evaluation-count">
+                            {backtest.evaluated_games} games evaluated
+                            {backtest.stub_mode ? " · Synthetic data" : ""}
+                          </p>
+                          <div className="table-scroll">
+                            <table>
+                              <thead>
+                                <tr>
+                                  <th>Stat</th>
+                                  <th>Prediction MAE</th>
+                                  <th>Baseline MAE</th>
+                                  <th>RMSE</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {STATS.map((s) => (
+                                  <tr key={s}>
+                                    <th>{LABELS[s]}</th>
+                                    <td>{number(backtest.stats[s].mae)}</td>
+                                    <td>
+                                      {number(
+                                        backtest.stats[s].blended_baseline_mae,
+                                      )}
+                                    </td>
+                                    <td>{number(backtest.stats[s].rmse)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div className="forecast-note">
+                  <Info size={16} />
+                  <p>
+                    Predictions assume the player participates. Ranges are
+                    approximate and uncalibrated; injuries, lineups, and pace
+                    aren’t included.
+                  </p>
+                </div>
+                {result?.stub_mode && (
+                  <div className="synthetic-notice">
+                    <span className="orange-dot" />
+                    Synthetic demonstration data. This is not a real NBA
+                    forecast.
+                  </div>
+                )}
+                {result && (
+                  <details className="prediction-details">
+                    <summary>
+                      Prediction details <ChevronRight size={14} />
+                    </summary>
+                    <div className="details-metadata">
+                      <span>
+                        Latest game: {prettyDate(result.last_history_date)}
+                      </span>
+                      <span>
+                        {result.model.cache_hit
+                          ? "Saved model reused"
+                          : "Model prepared from history"}
+                      </span>
+                    </div>
+                    {result.warnings.map((warning) => (
+                      <p key={warning}>{warning}</p>
+                    ))}
+                    <pre>{JSON.stringify(result, null, 2)}</pre>
+                  </details>
+                )}
+              </section>
+            </div>
+          </>
+        )}
         <footer className="page-footer">
           <span>
             COURTSIDE <span>·</span> A little more perspective.

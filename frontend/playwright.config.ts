@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { resolve } from "node:path";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -19,7 +20,12 @@ export default defineConfig({
   ],
   webServer: {
     command:
-      "DEBUG=0 STUB_MODE=1 uv run --project .. uvicorn bpps.api:app --host 127.0.0.1 --port 8012",
+      "uv run --project .. uvicorn bpps.api:app --host 127.0.0.1 --port 8012",
+    env: {
+      DEBUG: "0",
+      STUB_MODE: "1",
+      PROJ_DIR: resolve("../.cache/bpps/e2e"),
+    },
     url: "http://127.0.0.1:8012/health",
     reuseExistingServer: false,
     timeout: 60_000,

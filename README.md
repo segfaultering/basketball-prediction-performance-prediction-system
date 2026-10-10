@@ -190,6 +190,56 @@ With your `.env` configured, start using:
 uv run uvicorn bpps.api:app --reload
 ```
 
+## Forecast tracking
+
+API predictions and CLI predictions using automatic NBA or stub history are saved
+automatically. Each immutable snapshot includes a UTC creation time, requested
+inputs, player/game identity, prediction ranges, baseline, and model identity.
+The response adds `forecast_id` and `saved_at`. Predictions are checked before
+and after training against the scheduled tipoff, so training that crosses tipoff
+does not produce an archived forecast. Historical backtests and CLI CSV/local
+schedule experiments are not archived.
+
+Open **Forecast history** in the dashboard to review saved forecasts. Select
+**Refresh results** after games finish to retrieve outcomes and compare forecast,
+baseline, actual statistics, and signed errors. Refresh only attaches game logs
+for games marked final; it bypasses live response caches, matches NBA game IDs,
+and fetches the saved game's season. It tries the requested history season type
+first, then other NBA season types when needed, so forecasts using regular-season
+history can still be matched to playoff outcomes. Missing player
+game logs remain pending, since absence does not establish that a player did not
+play. Confirmed zero-minute logs are labeled did not play and excluded from
+accuracy metrics. Repeat refreshes can pick up corrected NBA results without
+changing forecast snapshots. Partial upstream failures are reported individually
+while other records can still update.
+
+Accuracy summaries report MAE, RMSE, baseline MAE, and empirical range coverage
+across the **first saved forecast per player/game**. Additional predictions and
+minutes scenarios remain visible but do not increase the evaluation sample.
+These are forecasts made before games, separate from historical backtesting;
+small samples and synthetic results do not establish NBA accuracy.
+
+Records live in `PROJ_DIR/data/bpps/forecasts.sqlite3`, separate from disposable
+`.cache/bpps` artifacts. The database is created on first use; back up this file
+to preserve history. Live and synthetic records are isolated by source, and
+switching modes shows only that mode's history. Existing predictions are not
+retroactively imported. Stub fixtures do not provide completed demo-game results,
+so ordinary stub forecasts remain pending. Result refresh is manual; there is no
+background polling or user-account separation in this local application.
+
+```bash
+uv run bpps forecasts
+uv run bpps forecasts --refresh-results
+uv run bpps forecasts --limit 20 --offset 20
+```
+
+The API exposes `GET /forecasts?limit=50&offset=0` (limit 1–100) and
+`POST /forecasts/refresh` (no body required). History responses include a paginated
+`forecasts` list, `total`, and a `summary` over all records for the active source.
+Refresh responses include `updated_forecasts` and per-player retrieval `errors`.
+Forecast storage failures return HTTP 503 rather than reporting an unsaved
+prediction as successfully tracked.
+
 ## React frontend
 
 Courtside is a React + TypeScript dashboard served by FastAPI at **http://127.0.0.1:8000/ui/**. Install Node.js 22.12+ (or 20.19+) and build the interface once:

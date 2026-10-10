@@ -8,11 +8,12 @@ from bpps.settings import Settings
 
 
 @pytest.fixture(autouse=True)
-def isolate_settings(monkeypatch):
+def isolate_settings(monkeypatch, tmp_path):
     # Developer .env must not influence unit tests.
     monkeypatch.setitem(Settings.model_config, "env_file", None)
     for key in ("STUB_MODE", "DEBUG", "PROJ_DIR"):
         monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("PROJ_DIR", str(tmp_path))
 
 
 def current_season():
@@ -190,3 +191,79 @@ def test_cli_uses_stub(monkeypatch, capsys):
 def test_env_unset_defaults_to_live(monkeypatch):
     monkeypatch.delenv("STUB_MODE", raising=False)
     assert isinstance(create_provider(), NBAClient)
+
+
+def test_forecasts_saved_reopened_and_refreshed(client, monkeypatch):
+    from bpps.api import create_app
+    from bpps.model import GameLog
+
+    first = client.post("/predictions", json=payload()).json()
+    second = client.post("/predictions", json=payload(minutes=10)).json()
+    assert first["forecast_id"] != second["forecast_id"]
+    report = client.get("/forecasts?limit=1").json()
+    assert report["total"] == 2
+    assert report["forecasts"][0]["inputs"]["minutes"] == 10
+    assert report["forecasts"][0]["primary"] is False
+    assert report["summary"]["tracked_games"] == 1
+    with TestClient(create_app(include_ui=False)) as reopened:
+        assert reopened.get("/forecasts").json()["total"] == 2
+    provider = client.app.state.provider
+    game = provider.schedule()[0]
+    game["status"] = 3
+    monkeypatch.setattr(provider, "schedule", lambda: [game])
+    outcome = GameLog(
+        "demo-player",
+        "demo-game",
+        datetime.now(UTC).date(),
+        "LAL",
+        "BOS",
+        True,
+        30,
+        22,
+        5,
+        6,
+        1,
+        0,
+    )
+    monkeypatch.setattr(provider, "logs", lambda *args: [outcome])
+    refreshed = client.post("/forecasts/refresh").json()
+    assert refreshed["updated_forecasts"] == 2
+    assert refreshed["errors"] == []
+    history = client.get("/forecasts").json()
+    assert history["summary"]["evaluated_games"] == 1
+    assert history["forecasts"][0]["outcome"]["stats"]["points"] == 22
+    original = history["forecasts"][1]["prediction"]
+    assert original["stats"] == first["stats"]
+    assert original["model"] == first["model"]
+    assert "forecast_id" not in original
+
+
+@pytest.mark.parametrize("query", ["limit=0", "limit=101", "offset=-1"])
+def test_forecast_pagination_validation(client, query):
+    assert client.get(f"/forecasts?{query}").status_code == 422
+
+
+def test_training_crossing_tipoff_cannot_save_forecast(client, monkeypatch):
+    checks = 0
+
+    def guard(game):
+        nonlocal checks
+        checks += 1
+        if checks == 2:
+            raise ValueError("Game tipoff has passed")
+
+    monkeypatch.setattr("bpps.service.require_pregame", guard)
+    assert client.post("/predictions", json=payload()).status_code == 409
+    assert client.get("/forecasts").json()["total"] == 0
+
+
+def test_forecast_storage_failure_is_explicit(client, monkeypatch):
+    import sqlite3
+
+    def fail(*args):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(client.app.state.forecasts, "save", fail)
+    response = client.post("/predictions", json=payload())
+    assert response.status_code == 503
+    assert "storage is unavailable" in response.json()["detail"]

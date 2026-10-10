@@ -36,6 +36,9 @@ export interface ModelStat {
   baseline: { window: string; kind: string; value: number };
 }
 export interface Prediction {
+  forecast_id?: string;
+  saved_at?: string;
+  player_name?: string;
   player_id: string;
   game_id: string;
   game_date: string;
@@ -86,6 +89,48 @@ export interface PredictionInput {
   game_id: string;
   minutes?: number;
   seasons?: string[];
+}
+
+export interface TrackedForecast {
+  id: string;
+  created_at: string;
+  updated_at: string | null;
+  primary: boolean;
+  status: "pending" | "settled" | "did_not_play";
+  inputs: {
+    player_id: string;
+    game_id: string;
+    minutes: number | null;
+    seasons: string[] | null;
+    season_type: string;
+  };
+  prediction: Prediction;
+  outcome: { minutes: number; stats: Record<Stat, number> } | null;
+  errors: Record<Stat, number> | null;
+}
+export interface ForecastHistory {
+  stub_mode: boolean;
+  total: number;
+  forecasts: TrackedForecast[];
+  summary: {
+    tracked_games: number;
+    evaluated_games: number;
+    pending_games: number;
+    did_not_play_games: number;
+    stats: Record<
+      Stat,
+      {
+        mae: number | null;
+        rmse: number | null;
+        baseline_mae: number | null;
+        range_coverage: number | null;
+      }
+    >;
+  };
+}
+export interface ForecastRefresh {
+  updated_forecasts: number;
+  errors: { player_id: string; season: string; detail: string }[];
 }
 
 export async function request<T>(

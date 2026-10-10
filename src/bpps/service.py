@@ -11,6 +11,7 @@ from .learning import create_backend
 from .prediction_engine import PredictionEngine
 from .providers import NBAClient, StubClient
 from .settings import Settings
+from .tracking import ForecastStore, require_pregame
 
 Season = Annotated[str, Field(pattern=r"^\d{4}-\d{2}$")]
 SeasonType = Literal["Regular Season", "Playoffs", "Pre Season"]
@@ -40,6 +41,7 @@ class PredictionService:
         provider: NBAClient | StubClient,
         cache_dir: Path | None = None,
         backend_name: str = "ridge",
+        forecast_store: ForecastStore | None = None,
     ):
         self.provider = provider
         self.stub = isinstance(provider, StubClient)
@@ -48,6 +50,7 @@ class PredictionService:
         )
         self.backend = create_backend(backend_name)
         self.engines: dict[str, PredictionEngine] = {}
+        self.forecast_store = forecast_store
 
     def engine(self, season_type: str) -> PredictionEngine:
         if season_type not in self.engines:
@@ -103,17 +106,26 @@ class PredictionService:
             raise HTTPException(404, "Game not found")
         if game["status"] != 1:
             raise HTTPException(409, "Game has already started or finished")
+        try:
+            require_pregame(dict(game))
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
         game_date = date.fromisoformat(game["date"])
         start = game_date.year if game_date.month >= 7 else game_date.year - 1
         season = f"{start}-{str(start + 1)[-2:]}"
         home = None
+        player_name = body.player_id
         for team_id, is_home in (
             (game["home_team_id"], True),
             (game["away_team_id"], False),
         ):
             roster = self.provider.roster(team_id, season)
-            if any(str(p["PLAYER_ID"]) == body.player_id for p in roster):
+            player = next(
+                (p for p in roster if str(p["PLAYER_ID"]) == body.player_id), None
+            )
+            if player is not None:
                 home = is_home
+                player_name = player["PLAYER"]
                 break
         if home is None:
             raise HTTPException(
@@ -136,11 +148,20 @@ class PredictionService:
             team=game["home_team" if home else "away_team"],
             roster_verified=True,
             stub_mode=self.stub,
+            player_name=player_name,
+            tipoff_utc=game.get("tipoff_utc"),
         )
         if self.stub:
             result["warnings"].append(
                 "Synthetic stub data; this is not a real NBA prediction."
             )
+        if self.forecast_store is not None:
+            # Training may cross tipoff. Never archive a post-tipoff forecast.
+            try:
+                require_pregame(dict(game))
+            except ValueError as exc:
+                raise HTTPException(409, str(exc)) from exc
+            result.update(self.forecast_store.save(body.model_dump(), result))
         return result
 
     def evaluate(self, body: HistoryRequest):

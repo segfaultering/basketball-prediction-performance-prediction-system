@@ -314,3 +314,10 @@ def test_cli_auto_training_and_prediction(tmp_path, monkeypatch, capsys):
     prediction = json.loads(capsys.readouterr().out)
     assert prediction["model"]["cache_hit"] is True
     assert "baseline" in prediction
+    assert prediction["forecast_id"]
+    monkeypatch.setattr("sys.argv", ["bpps", "forecasts", "--refresh-results"])
+    assert main() == 0
+    history = json.loads(capsys.readouterr().out)
+    assert history["total"] == 1
+    assert history["forecasts"][0]["prediction"]["stats"] == prediction["stats"]
+    assert history["refresh"]["updated_forecasts"] == 0

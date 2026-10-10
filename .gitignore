@@ -12,6 +12,9 @@ wheels/
 # NBA response cache
 .cache/
 
+# Durable local forecast history (separate from disposable caches)
+data/bpps/
+
 # Notebook checkpoints
 .ipynb_checkpoints/
 

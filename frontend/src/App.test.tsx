@@ -13,6 +13,7 @@ import { STATS, utcToday } from "./api";
 import type { Prediction } from "./api";
 
 const forecast: Prediction = {
+  forecast_id: "saved-forecast",
   player_id: "1",
   game_id: "game",
   game_date: utcToday(),
@@ -118,6 +119,7 @@ describe("prediction workflow", () => {
       screen.getByRole("button", { name: /Generate prediction/ }),
     );
     await screen.findByText("100");
+    expect(screen.getByText("Saved to forecast history")).toBeTruthy();
     const calls = vi.mocked(fetch).mock.calls;
     const input = JSON.parse(
       String(calls.find(([path]) => path === "/predictions")?.[1]?.body),

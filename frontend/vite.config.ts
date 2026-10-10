@@ -12,6 +12,7 @@ export default defineConfig({
         "/teams",
         "/predictions",
         "/backtests",
+        "/forecasts",
         "/docs",
         "/openapi.json",
       ].map((path) => [path, "http://127.0.0.1:8000"]),

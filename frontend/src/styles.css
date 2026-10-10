@@ -1868,6 +1868,70 @@ td {
 }
 
 /* The range and its two markers share the same numerical scale. */
+.tracking-section {
+  min-width: 0;
+}
+.tracking-section .section-heading {
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.tracking-section h2 {
+  margin: 0 0 8px;
+}
+.tracking-section p {
+  line-height: 1.6;
+}
+.tracking-actions,
+.tracking-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+}
+.tracking-counts {
+  margin: 24px 0 12px;
+}
+.tracking-records {
+  display: grid;
+  gap: 12px;
+  margin: 24px 0;
+}
+.tracking-record {
+  padding: 20px;
+  min-width: 0;
+}
+.tracking-record > summary {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  cursor: pointer;
+}
+.tracking-record small {
+  display: block;
+  margin-top: 8px;
+}
+.tracking-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.tracking-table caption {
+  text-align: left;
+  padding: 16px 0;
+  font-weight: 600;
+}
+.tracking-table th,
+.tracking-table td {
+  padding: 12px 10px;
+  text-align: left;
+  border-bottom: 1px solid #e2e6db;
+  white-space: nowrap;
+}
+.tracking-section .table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
 .range-track {
   overflow: visible;
 }
