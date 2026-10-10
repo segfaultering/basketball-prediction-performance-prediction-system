@@ -74,11 +74,8 @@ export default function ForecastTracking() {
     <section className="tracking-section" aria-label="Saved forecasts">
       <div className="section-heading">
         <div>
-          <h2>Forecasts meet results</h2>
-          <p>
-            Predictions saved before tipoff, compared with completed
-            appearances.
-          </p>
+          <h2>Results</h2>
+          <p>Saved forecasts and final stats.</p>
         </div>
         <div className="tracking-actions">
           <button
@@ -116,8 +113,7 @@ export default function ForecastTracking() {
         <>
           <div className="tracking-counts">
             <span>
-              <strong>{history.summary.tracked_games}</strong> tracked
-              player/games
+              <strong>{history.summary.tracked_games}</strong> tracked games
             </span>
             <span>
               <strong>{history.summary.evaluated_games}</strong> evaluated
@@ -129,11 +125,14 @@ export default function ForecastTracking() {
               <strong>{history.summary.did_not_play_games}</strong> did not play
             </span>
           </div>
-          <p className="table-note">
-            Accuracy uses the first forecast per player/game. Later scenarios
-            remain in history. Confirmed zero-minute appearances are excluded;
-            missing game logs remain pending.
-          </p>
+          <details className="prediction-details">
+            <summary>How accuracy is measured</summary>
+            <p>
+              Accuracy uses the first forecast per player/game. Later scenarios
+              remain in history. Confirmed zero-minute appearances are excluded;
+              missing game logs remain pending.
+            </p>
+          </details>
           {history.summary.evaluated_games > 0 ? (
             <div className="table-scroll">
               <table className="tracking-table">
@@ -168,9 +167,7 @@ export default function ForecastTracking() {
               </table>
             </div>
           ) : (
-            <p className="table-note">
-              No completed appearances to evaluate yet.
-            </p>
+            <p className="table-note">No results yet.</p>
           )}
           {!history.total && (
             <div className="schedule-empty">
@@ -222,7 +219,7 @@ export default function ForecastTracking() {
                         <th>Forecast</th>
                         <th>Baseline</th>
                         <th>Actual</th>
-                        <th>Error (forecast − actual)</th>
+                        <th>Error</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -243,7 +240,7 @@ export default function ForecastTracking() {
                   </table>
                 </div>
                 <details className="prediction-details">
-                  <summary>Saved inputs and model details</summary>
+                  <summary>Inputs & model</summary>
                   <pre>
                     {JSON.stringify(
                       { inputs: record.inputs, prediction: record.prediction },

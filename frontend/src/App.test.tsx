@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -73,7 +74,15 @@ const json = (data: unknown, status = 200) =>
 beforeEach(() => {
   Object.defineProperty(HTMLDialogElement.prototype, "close", {
     configurable: true,
-    value: vi.fn(),
+    value: function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    },
   });
   predictionHandler = () => json(forecast);
   vi.stubGlobal(
@@ -119,16 +128,24 @@ describe("prediction workflow", () => {
       screen.getByRole("button", { name: /Generate prediction/ }),
     );
     await screen.findByText("100");
-    expect(screen.getByText("Saved to forecast history")).toBeTruthy();
+    expect(screen.getByText("Saved")).toBeTruthy();
     const calls = vi.mocked(fetch).mock.calls;
     const input = JSON.parse(
       String(calls.find(([path]) => path === "/predictions")?.[1]?.body),
     );
     expect(input).toEqual({ player_id: "1", game_id: "game" });
     expect(screen.getAllByText("18.0").length).toBe(3);
-    await user.click(screen.getByRole("button", { name: "Model insights" }));
+    await user.click(screen.getByRole("button", { name: "Open navigation" }));
+    await user.click(
+      within(screen.getByRole("dialog", { name: "Navigation" })).getByRole(
+        "button",
+        { name: "Model insights" },
+      ),
+    );
     expect(screen.getByText("7.0")).toBeTruthy();
-    expect(screen.getByText("Correction")).toBeTruthy();
+    expect(
+      within(screen.getByRole("table")).getByText("Correction"),
+    ).toBeTruthy();
   });
 
   it("sends minutes override and clears results when playing time changes", async () => {

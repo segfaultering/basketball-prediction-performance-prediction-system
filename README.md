@@ -260,6 +260,15 @@ For an offline demo, run `STUB_MODE=1 uv run uvicorn bpps.api:app --reload` and 
 
 For frontend development, start the API on port 8000 and run `npm run dev` from `frontend/`. Open **http://127.0.0.1:5173/ui/**; Vite proxies requests to the API. Fonts are bundled locally; no external font requests are needed.
 
+Use the hamburger button to open the sliding navigation drawer. Close it with
+the close button, Escape, or a click outside; choosing a view also closes it.
+The dashboard uses larger controls and concise labels, with explanations under details.
+
+Use the sun/moon button in the header to switch between light and dark mode.
+Your selection is remembered in the browser across reloads. Until you choose a
+theme, the dashboard follows your system's color preference. Switching also
+works when browser storage is unavailable, for the current session.
+
 Frontend checks (from `frontend/`):
 
 ```bash

@@ -1,4 +1,50 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+
+async function navigate(page: Page, name: string) {
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await page
+    .getByRole("dialog", { name: "Navigation", exact: true })
+    .getByRole("button", { name, exact: true })
+    .click();
+}
+
+test("switches themes and preserves the selection across reloads", async ({
+  page,
+}, info) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto("/ui/");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "Switch to dark mode" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator("html")).toHaveCSS(
+    "background-color",
+    "rgb(18, 26, 23)",
+  );
+  await expect(page.locator(".selection-panel")).toHaveCSS(
+    "background-color",
+    "rgb(27, 37, 32)",
+  );
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({ path: info.outputPath("dark.png"), fullPage: true });
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await navigate(page, "Forecast history");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await navigate(page, "How it works");
+  await expect(page.getByRole("dialog")).toHaveCSS(
+    "background-color",
+    "rgb(27, 37, 32)",
+  );
+  await page.getByRole("button", { name: "Close explanation" }).click();
+  await page.getByRole("button", { name: "Switch to light mode" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+});
 
 test("predicts with real synthetic API and handles selection changes", async ({
   page,
@@ -18,10 +64,8 @@ test("predicts with real synthetic API and handles selection changes", async ({
     page.locator(".stat-card").first().locator(".stat-value"),
   ).not.toContainText("—");
   await expect(page.locator(".synthetic-notice")).toBeVisible();
-  await expect(page.getByText("Saved to forecast history")).toBeVisible();
-  await page
-    .getByRole("button", { name: "Forecast history", exact: true })
-    .click();
+  await expect(page.getByText("Saved")).toBeVisible();
+  await navigate(page, "Forecast history");
   await expect(page.locator(".tracking-record").first()).toBeVisible();
   await page
     .locator(".tracking-record")
@@ -49,16 +93,12 @@ test("predicts with real synthetic API and handles selection changes", async ({
     fullPage: true,
   });
   await page.reload();
-  await page
-    .getByRole("button", { name: "Forecast history", exact: true })
-    .click();
+  await navigate(page, "Forecast history");
   await expect(page.locator(".tracking-record").first()).toBeVisible();
-  await page
-    .getByRole("button", { name: "Player predictions", exact: true })
-    .click();
+  await navigate(page, "Player predictions");
   await page.locator(".player-option").first().click();
   await page.getByRole("button", { name: "Generate prediction" }).click();
-  await expect(page.getByText("Saved to forecast history")).toBeVisible({
+  await expect(page.getByText("Saved")).toBeVisible({
     timeout: 45_000,
   });
   await page.screenshot({
@@ -70,23 +110,16 @@ test("predicts with real synthetic API and handles selection changes", async ({
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
-  await page
-    .getByRole("button", { name: "Model insights", exact: true })
-    .click();
+  await navigate(page, "Model insights");
   await expect(page.getByRole("table")).toBeVisible();
   await expect(
     page.getByRole("columnheader", { name: "Baseline MAE", exact: true }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "How it works", exact: true })
-    .first()
-    .click();
+  await navigate(page, "How it works");
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.getByRole("button", { name: "Close explanation" }).click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
-  await page
-    .getByRole("button", { name: "Player predictions", exact: true })
-    .click();
+  await navigate(page, "Player predictions");
   await page.getByRole("button", { name: "Next day" }).click();
   await expect(page.getByText(/No scheduled games on/)).toBeVisible();
   await expect(
@@ -113,4 +146,38 @@ test("surfaces API errors and retry succeeds", async ({ page }) => {
   await page.unroute("**/games?*");
   await page.getByRole("button", { name: "Try again" }).click();
   await expect(page.locator(".player-option").first()).toBeVisible();
+});
+
+test("slides navigation open and supports keyboard and backdrop dismissal", async ({
+  page,
+}) => {
+  await page.goto("/ui/");
+  const toggle = page.getByRole("button", { name: "Open navigation" });
+  const drawer = page.getByRole("dialog", { name: "Navigation", exact: true });
+  await expect(drawer).not.toBeVisible();
+  await toggle.click();
+  await expect(drawer).toBeVisible();
+  await expect(drawer).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 0)");
+  await expect(
+    page.getByRole("button", { name: "Close navigation" }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(drawer).not.toBeVisible();
+  await expect(toggle).toBeFocused();
+  await toggle.click();
+  await expect(drawer).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 0)");
+  const bounds = await drawer.boundingBox();
+  if (!bounds) throw new Error("Navigation drawer has no bounds");
+  await page.mouse.click(bounds.x + bounds.width + 8, 200);
+  await expect(drawer).not.toBeVisible();
+  await navigate(page, "Forecast history");
+  await expect(drawer).not.toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Forecast history." }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
 });

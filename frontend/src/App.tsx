@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ForecastTracking from "./ForecastTracking";
+import ThemeToggle from "./ThemeToggle";
+import Sidebar from "./Sidebar";
+import type { View } from "./Sidebar";
 import {
   Activity,
   ArrowDownRight,
@@ -10,11 +13,9 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  CircleHelp,
   Clock3,
   Download,
   Info,
-  LayoutDashboard,
   LoaderCircle,
   RefreshCw,
   Search,
@@ -68,31 +69,6 @@ const errorText = (error: unknown) =>
     ? error.message
     : "Something went wrong. Please try again.";
 
-function Court({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 320 190"
-      fill="none"
-      aria-hidden="true"
-    >
-      <rect x="10" y="10" width="300" height="170" rx="5" />
-      <path d="M160 10v170M10 53h58v84H10M310 53h-58v84h58M10 75h28v40H10M310 75h-28v40h28" />
-      <circle cx="160" cy="95" r="24" />
-      <circle cx="68" cy="95" r="22" />
-      <circle cx="252" cy="95" r="22" />
-      <path d="M10 25h19a83 83 0 0 1 0 140H10M310 25h-19a83 83 0 0 0 0 140h19" />
-    </svg>
-  );
-}
-function Ball() {
-  return (
-    <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <circle cx="16" cy="16" r="12" />
-      <path d="M4 16h24M16 4v24M7 7c12 0 18 6 18 18M7 25C7 13 13 7 25 7" />
-    </svg>
-  );
-}
 function TeamBadge({ team, small = false }: { team: string; small?: boolean }) {
   return (
     <span
@@ -200,10 +176,10 @@ function StatCard({ stat, result }: { stat: Stat; result: Prediction | null }) {
             <span>
               {number(low)} – {number(high)}
             </span>{" "}
-            approximate 80% range
+            80% range (approx.)
           </>
         ) : (
-          "Your estimate will appear here"
+          "No prediction"
         )}
       </div>
       <div className="range-track" aria-hidden="true">
@@ -253,15 +229,13 @@ function StatCard({ stat, result }: { stat: Stat; result: Prediction | null }) {
 }
 
 export default function App() {
-  const [view, setView] = useState<"predictions" | "insights" | "tracking">(
-    "predictions",
-  );
+  const [view, setView] = useState<View>("predictions");
   const viewTitle =
     view === "tracking"
       ? "Forecast history"
       : view === "insights"
         ? "Model insights"
-        : "Player predictions";
+        : "Predictions";
   const [help, setHelp] = useState(false);
   const [date, setDate] = useState(utcToday);
   const [refresh, setRefresh] = useState(0);
@@ -464,82 +438,22 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <a className="brand" href="/ui/" aria-label="Courtside home">
-          <span className="brand-mark">
-            <Ball />
-          </span>
-          <span>
-            courtside<span className="brand-dot">.</span>
-            <small>THE PLAYER PERFORMANCE LAB</small>
-          </span>
-        </a>
-        <span className="nav-caption">WORKSPACE</span>
-        <nav aria-label="Main navigation">
-          <button
-            className={view === "predictions" ? "active" : ""}
-            onClick={() => setView("predictions")}
-          >
-            <LayoutDashboard size={18} />
-            Player predictions
-            <span className="nav-indicator" />
-          </button>
-          <button
-            className={view === "insights" ? "active" : ""}
-            onClick={() => setView("insights")}
-          >
-            <BarChart3 size={18} />
-            Model insights
-          </button>
-          <button onClick={() => setHelp(true)}>
-            <CircleHelp size={18} />
-            How it works
-          </button>
-          <button
-            className={view === "tracking" ? "active" : ""}
-            onClick={() => setView("tracking")}
-          >
-            <Activity size={18} /> Forecast history
-          </button>
-        </nav>
-        <div className="sidebar-note">
-          <Court />
-          <span className="eyebrow">HISTORY MEETS POSSIBILITY</span>
-          <p>
-            Every great game
-            <br />
-            starts with a little
-            <br />
-            <strong>perspective.</strong>
-          </p>
-        </div>
-        <div className="sidebar-bottom">
-          <span className={`connection-dot ${health ? "connected" : ""}`} />
-          <div>
-            {health ? "Prediction engine online" : "Connecting to engine"}
-            <small>NBA player analytics</small>
-          </div>
-          <a
-            href="/docs"
-            aria-label="Open API documentation"
-            title="API documentation"
-          >
-            <ArrowUpRight size={17} />
-          </a>
-        </div>
-      </aside>
       <main className="main-content">
         <header className="page-header">
-          <div>
-            <div className="breadcrumb">
-              Workspace <ChevronRight size={12} /> {viewTitle}
-            </div>
+          <div className="header-left">
+            <Sidebar
+              view={view}
+              navigate={setView}
+              help={() => setHelp(true)}
+              online={health !== null}
+            />
             <h1>
               {viewTitle}
               <span className="title-dot">.</span>
             </h1>
           </div>
           <div className="header-right">
+            <ThemeToggle />
             <span className={`mode-pill ${health?.stub_mode ? "demo" : ""}`}>
               <span />
               {health
@@ -548,13 +462,6 @@ export default function App() {
                   : "Live NBA data"
                 : "Connecting"}
             </span>
-            <button
-              className="icon-button"
-              aria-label="How it works"
-              onClick={() => setHelp(true)}
-            >
-              <CircleHelp size={19} />
-            </button>
           </div>
         </header>
         {healthError && (
@@ -564,51 +471,13 @@ export default function App() {
           />
         )}
 
-        {view === "predictions" && (
-          <section className="hero">
-            <div className="hero-content">
-              <span className="eyebrow">
-                <span className="orange-dot" />
-                AHEAD OF THE GAME
-              </span>
-              <h2>
-                Read the game.
-                <br />
-                Before the <span>tip.</span>
-              </h2>
-              <p>
-                Player projections grounded in history.
-                <br className="desktop-break" /> A clearer view of what comes
-                next.
-              </p>
-            </div>
-            <div className="hero-art">
-              <Court />
-              <span className="court-label">
-                THE GAME, IN FOCUS <ArrowUpRight size={14} />
-              </span>
-              <div className="court-ball">
-                <Ball />
-              </div>
-            </div>
-            <div className="hero-footnote">
-              <ShieldCheck size={14} /> Individual baselines. Validated
-              corrections.
-            </div>
-          </section>
-        )}
-
         {view === "tracking" ? (
           <ForecastTracking />
         ) : (
           <>
             <section className="schedule-section" aria-label="Scheduled games">
               <div className="section-heading">
-                <StepTitle
-                  step="01"
-                  title="Set the stage"
-                  subtitle="Pick a scheduled matchup. All times are UTC."
-                />
+                <StepTitle step="01" title="Games" subtitle="UTC" />
                 <div className="date-controls">
                   <button
                     className="icon-button"
@@ -659,14 +528,13 @@ export default function App() {
               ) : gamesBusy ? (
                 <div className="schedule-empty">
                   <LoaderCircle className="spin" size={20} />
-                  Loading scheduled games…
+                  Loading games…
                 </div>
               ) : !games.length ? (
                 <div className="schedule-empty">
                   <CalendarDays size={22} />
                   <div>
                     <strong>No scheduled games on {prettyDate(date)}.</strong>
-                    <p>Try another date to find an upcoming matchup.</p>
                   </div>
                 </div>
               ) : (
@@ -706,11 +574,7 @@ export default function App() {
 
             <div className="workspace-grid">
               <section className="selection-panel panel">
-                <StepTitle
-                  step="02"
-                  title="Choose your player"
-                  subtitle="Find a player from either team’s roster."
-                />
+                <StepTitle step="02" title="Player" />
                 <div className="search-field">
                   <Search size={17} />
                   <input
@@ -747,17 +611,15 @@ export default function App() {
                   ) : playersBusy ? (
                     <div className="roster-placeholder">
                       <LoaderCircle className="spin" size={20} />
-                      Loading the rosters…
+                      Loading players…
                     </div>
                   ) : !game ? (
-                    <div className="roster-placeholder">
-                      Select a scheduled game first.
-                    </div>
+                    <div className="roster-placeholder">Select a game.</div>
                   ) : !filteredPlayers.length ? (
                     <div className="roster-placeholder">
                       {players.length
                         ? "No players match your search."
-                        : "No roster players returned for this game."}
+                        : "No players available."}
                     </div>
                   ) : (
                     filteredPlayers.map((p) => (
@@ -813,7 +675,7 @@ export default function App() {
                     <>
                       <div className="minutes-value">
                         <strong>{minutes}</strong>
-                        <span>minutes on the court</span>
+                        <span>minutes</span>
                       </div>
                       <input
                         aria-label="Expected minutes"
@@ -829,7 +691,7 @@ export default function App() {
                       </div>
                     </>
                   ) : (
-                    <p>Estimated automatically from recent playing time.</p>
+                    <p>Recent average.</p>
                   )}
                 </div>
                 <details className="advanced-options">
@@ -845,7 +707,7 @@ export default function App() {
                       onChange={(e) => setSeasons(e.target.value)}
                     />
                   </label>
-                  <p>Optional override, e.g. 2024-25, 2025-26.</p>
+                  <p>Example: 2024-25, 2025-26.</p>
                 </details>
                 <button
                   className="predict-button"
@@ -861,7 +723,7 @@ export default function App() {
                   {predictionBusy ? (
                     <>
                       <LoaderCircle size={18} className="spin" />
-                      Building your prediction…
+                      Predicting…
                     </>
                   ) : (
                     <>
@@ -871,10 +733,6 @@ export default function App() {
                     </>
                   )}
                 </button>
-                <p className="selection-footnote">
-                  <ShieldCheck size={12} />
-                  History is retrieved and models are trained for you.
-                </p>
               </section>
 
               <section
@@ -886,14 +744,12 @@ export default function App() {
                   <StepTitle
                     step="03"
                     title={
-                      view === "predictions"
-                        ? "The player forecast"
-                        : "Behind the prediction"
+                      view === "predictions" ? "Forecast" : "Model details"
                     }
                     subtitle={
                       player
                         ? `${player.PLAYER} · ${player.team}${game ? ` vs ${player.team === game.home_team ? game.away_team : game.home_team}` : ""}`
-                        : "Select a player to get a clearer picture."
+                        : "Select a player"
                     }
                   />
                   {result && (
@@ -913,11 +769,7 @@ export default function App() {
                   <div className="training-notice" role="status">
                     <LoaderCircle className="spin" size={18} />
                     <div>
-                      <strong>Putting the history to work.</strong>
-                      <p>
-                        We’re retrieving games and preparing this player’s
-                        model. The first prediction may take a little longer.
-                      </p>
+                      <strong>Preparing prediction…</strong>
                     </div>
                   </div>
                 )}
@@ -928,15 +780,8 @@ export default function App() {
                     </span>
                     <div>
                       <strong>
-                        {player
-                          ? "Ready when you are."
-                          : "One player. A world of possibility."}
+                        {player ? "Ready to predict" : "Choose a player"}
                       </strong>
-                      <p>
-                        {player
-                          ? "Generate a prediction to see projected stats and their historical baseline."
-                          : "Choose a player, then let their history do the talking."}
-                      </p>
                     </div>
                   </div>
                 )}
@@ -944,7 +789,7 @@ export default function App() {
                   <div className="forecast-meta">
                     {result.forecast_id && (
                       <span>
-                        <Check size={14} /> Saved to forecast history
+                        <Check size={14} /> Saved
                       </span>
                     )}
                     <span>
@@ -954,7 +799,7 @@ export default function App() {
                     </span>
                     <span>
                       <Activity size={14} />
-                      <strong>{result.history_games}</strong> historical games
+                      <strong>{result.history_games}</strong> past games
                     </span>
                     <span className="forecast-date">
                       {prettyDate(result.game_date)}
@@ -988,11 +833,7 @@ export default function App() {
                             {result
                               ? `${number(result.stats[stat].approximate_80pct_range[0])} – ${number(result.stats[stat].approximate_80pct_range[1])}`
                               : "Awaiting prediction"}
-                            <small>
-                              {result
-                                ? "approximate 80% range"
-                                : "Your supporting stats"}
-                            </small>
+                            <small>{result ? "80% range (approx.)" : ""}</small>
                           </span>
                         </div>
                       ))}
@@ -1000,14 +841,14 @@ export default function App() {
                     <div className="legend">
                       <span>
                         <i className="legend-orange" />
-                        Final prediction
+                        Prediction
                       </span>
                       <span>
                         <i className="legend-gray" />
-                        Historical baseline
+                        Baseline
                       </span>
                       <button onClick={() => setView("insights")}>
-                        Explore model insights <ArrowUpRight size={13} />
+                        Model insights <ArrowUpRight size={13} />
                       </button>
                     </div>
                   </>
@@ -1016,10 +857,9 @@ export default function App() {
                     <div className="insights-intro">
                       <BarChart3 size={22} />
                       <div>
-                        <h3>A correction has to earn its place.</h3>
+                        <h3>Validation</h3>
                         <p>
-                          Each stat keeps its baseline unless the learned
-                          correction improves average error on later historical
+                          Corrections must beat the baseline on validation
                           games.
                         </p>
                       </div>
@@ -1082,9 +922,7 @@ export default function App() {
                           </table>
                         </div>
                         <p className="table-note">
-                          MAE = average absolute error. Lower is better. These
-                          results guide model selection; they don’t guarantee
-                          future accuracy.
+                          MAE: average absolute error. Lower is better.
                         </p>
                       </>
                     ) : (
@@ -1094,11 +932,10 @@ export default function App() {
                       </p>
                     )}
                     <div className="evaluation-section">
-                      <h3>Put it to the test</h3>
+                      <h3>Backtest</h3>
                       <p>
-                        Replay earlier games using only the history available
-                        before each matchup. Full-career evaluation can take
-                        several minutes.
+                        Evaluate past games. Career runs may take several
+                        minutes.
                       </p>
                       <button
                         className="outline-button"
@@ -1111,8 +948,8 @@ export default function App() {
                           <Activity size={15} />
                         )}
                         {backtestBusy
-                          ? "Evaluating historical games…"
-                          : "Run chronological backtest"}
+                          ? "Evaluating past games…"
+                          : "Run backtest"}
                       </button>
                       {backtestError && <ErrorNotice message={backtestError} />}
                       {backtest && (
@@ -1154,17 +991,12 @@ export default function App() {
                 )}
                 <div className="forecast-note">
                   <Info size={16} />
-                  <p>
-                    Predictions assume the player participates. Ranges are
-                    approximate and uncalibrated; injuries, lineups, and pace
-                    aren’t included.
-                  </p>
+                  <p>Assumes participation. Ranges are uncalibrated.</p>
                 </div>
                 {result?.stub_mode && (
                   <div className="synthetic-notice">
                     <span className="orange-dot" />
-                    Synthetic demonstration data. This is not a real NBA
-                    forecast.
+                    Synthetic data · Not an NBA forecast.
                   </div>
                 )}
                 {result && (
@@ -1192,12 +1024,6 @@ export default function App() {
             </div>
           </>
         )}
-        <footer className="page-footer">
-          <span>
-            COURTSIDE <span>·</span> A little more perspective.
-          </span>
-          <span>Grounded in history. Built for the next game.</span>
-        </footer>
       </main>
       <dialog
         ref={dialogRef}
@@ -1215,16 +1041,12 @@ export default function App() {
         >
           <X size={20} />
         </button>
-        <span className="eyebrow">THE THINKING BEHIND THE NUMBERS</span>
-        <h2 id="help-title">
-          History first.
-          <br />
-          Intelligence second.
-        </h2>
+
+        <h2 id="help-title">How forecasts work</h2>
         <div className="help-step">
           <span>01</span>
           <div>
-            <h3>Start with a player’s baseline</h3>
+            <h3>Baseline</h3>
             <p>
               Blend historical and current-season production per minute, then
               multiply by expected playing time.
@@ -1234,7 +1056,7 @@ export default function App() {
         <div className="help-step">
           <span>02</span>
           <div>
-            <h3>Learn what history can add</h3>
+            <h3>Correction</h3>
             <p>
               A player-specific linear model learns a correction using recent
               production, minutes, home court, and rest.
@@ -1244,7 +1066,7 @@ export default function App() {
         <div className="help-step">
           <span>03</span>
           <div>
-            <h3>Make the correction prove itself</h3>
+            <h3>Validation</h3>
             <p>
               Only use a correction when it lowers error on later historical
               games. Otherwise, keep the baseline.
@@ -1253,13 +1075,10 @@ export default function App() {
         </div>
         <div className="help-caveat">
           <Info size={17} />
-          <p>
-            A projection is an estimate, not a promise. Approximate ranges are
-            not calibrated confidence intervals.
-          </p>
+          <p>Ranges are approximate, not calibrated intervals.</p>
         </div>
         <button className="predict-button" onClick={() => setHelp(false)}>
-          Back to the game <ArrowRight size={17} />
+          Done <ArrowRight size={17} />
         </button>
       </dialog>
     </div>
