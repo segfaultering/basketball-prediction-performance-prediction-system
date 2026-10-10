@@ -30,7 +30,7 @@ const report: PlayerResearchReport = {
   search_suggestions_html: "<div>Search suggestions</div>",
   stub_mode: false,
   cached: false,
-  model: "gemini-2.5-flash",
+  model: "gemini-3.1-flash-lite",
 };
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {

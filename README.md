@@ -289,7 +289,7 @@ Research does not change the numerical prediction or run automatically.
 
 In the project-root `.env`, set `GEMINI_API_KEY` to your Gemini API key and
 `STUB_MODE=0`, then restart the API. Keep the key server-side; do not put it in
-frontend variables or commit it. `GEMINI_MODEL` defaults to `gemini-2.5-flash`;
+frontend variables or commit it. `GEMINI_MODEL` defaults to `gemini-3.1-flash-lite`;
 use a model that supports Google Search grounding and structured output.
 `RESEARCH_TIMEOUT_SECONDS` defaults to 60. Missing keys and quota/network errors
 appear in the research panel without preventing predictions.
