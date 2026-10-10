@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ForecastTracking from "./ForecastTracking";
+import PlayerResearch from "./PlayerResearch";
 import ThemeToggle from "./ThemeToggle";
 import TeamBadge from "./TeamBadge";
 import Sidebar from "./Sidebar";
@@ -753,6 +754,13 @@ export default function App() {
                     </button>
                   )}
                 </div>
+                {view === "predictions" && player && game && (
+                  <PlayerResearch
+                    key={`${gameId}:${playerId}`}
+                    playerId={playerId}
+                    gameId={gameId}
+                  />
+                )}
                 {predictionError && (
                   <ErrorNotice message={predictionError} retry={predict} />
                 )}

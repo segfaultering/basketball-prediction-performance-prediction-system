@@ -11,6 +11,7 @@ export default defineConfig({
         "/games",
         "/teams",
         "/predictions",
+        "/player-research",
         "/backtests",
         "/forecasts",
         "/docs",

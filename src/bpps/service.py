@@ -97,9 +97,9 @@ class PredictionService:
             )
         return logs
 
-    def prediction(self, body: PredictionRequest):
+    def player_context(self, player_id: str, game_id: str):
         game = next(
-            (g for g in self.provider.schedule() if str(g["game_id"]) == body.game_id),
+            (g for g in self.provider.schedule() if str(g["game_id"]) == game_id),
             None,
         )
         if game is None:
@@ -114,15 +114,13 @@ class PredictionService:
         start = game_date.year if game_date.month >= 7 else game_date.year - 1
         season = f"{start}-{str(start + 1)[-2:]}"
         home = None
-        player_name = body.player_id
+        player_name = player_id
         for team_id, is_home in (
             (game["home_team_id"], True),
             (game["away_team_id"], False),
         ):
             roster = self.provider.roster(team_id, season)
-            player = next(
-                (p for p in roster if str(p["PLAYER_ID"]) == body.player_id), None
-            )
+            player = next((p for p in roster if str(p["PLAYER_ID"]) == player_id), None)
             if player is not None:
                 home = is_home
                 player_name = player["PLAYER"]
@@ -131,6 +129,12 @@ class PredictionService:
             raise HTTPException(
                 422, "Player is not on either participating team's roster"
             )
+        return game, game_date, home, player_name
+
+    def prediction(self, body: PredictionRequest):
+        game, game_date, home, player_name = self.player_context(
+            body.player_id, body.game_id
+        )
         logs = self.history(body, game_date)
         try:
             result = self.engine(body.season_type).prediction(

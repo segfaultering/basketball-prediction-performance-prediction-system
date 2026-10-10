@@ -267,3 +267,49 @@ def test_forecast_storage_failure_is_explicit(client, monkeypatch):
     response = client.post("/predictions", json=payload())
     assert response.status_code == 503
     assert "storage is unavailable" in response.json()["detail"]
+
+
+def test_player_research_stub_resolves_context_without_training(client):
+    response = client.post(
+        "/player-research",
+        json={"player_id": "demo-player", "game_id": "demo-game"},
+    )
+    assert response.status_code == 200
+    report = response.json()
+    assert report["stub_mode"] is True
+    assert report["availability"] == "unknown"
+    assert report["context"]["player_name"] == "Demo Lakers Player"
+    assert report["context"]["team"] == "LAL"
+    assert report["context"]["opponent"] == "BOS"
+    assert report["sources"] == []
+    assert client.app.state.service.engines == {}
+    assert client.get("/forecasts").json()["total"] == 0
+
+
+@pytest.mark.parametrize(
+    "body,status",
+    [
+        ({"player_id": "missing", "game_id": "demo-game"}, 422),
+        ({"player_id": "demo-player", "game_id": "missing"}, 404),
+        ({"player_id": "", "game_id": "demo-game"}, 422),
+        ({"player_id": "demo-player", "game_id": "demo-game", "name": "Fake"}, 422),
+    ],
+)
+def test_player_research_validates_identity(client, body, status):
+    assert client.post("/player-research", json=body).status_code == status
+
+
+def test_player_research_failure_does_not_break_predictions(client, monkeypatch):
+    from bpps.research import ResearchUnavailable
+
+    async def fail(context):
+        raise ResearchUnavailable("Player research timed out. Try again.")
+
+    monkeypatch.setattr(client.app.state.research, "research", fail)
+    response = client.post(
+        "/player-research",
+        json={"player_id": "demo-player", "game_id": "demo-game"},
+    )
+    assert response.status_code == 503
+    assert "timed out" in response.json()["detail"]
+    assert client.post("/predictions", json=payload()).status_code == 200

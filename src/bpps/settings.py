@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     stub_mode: Literal[0, 1] = 0
     debug: Literal[0, 1] = 0
     model_backend: str = "ridge"
+    gemini_api_key: SecretStr | None = None
+    gemini_model: str = Field(default="gemini-2.5-flash", min_length=1)
+    research_timeout_seconds: int = Field(default=60, ge=5, le=120)
 
     @field_validator("stub_mode", "debug", mode="before")
     @classmethod

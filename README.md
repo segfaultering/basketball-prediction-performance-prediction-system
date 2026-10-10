@@ -280,3 +280,37 @@ npm run test:e2e
 ```
 
 The browser tests start a synthetic API on port 8012 and exercise the built interface at desktop and mobile sizes. Run them after building. Python checks remain `uv run pyrefly check`, `uv run ruff check src tests`, `uv run ruff format --check src tests`, and `uv run pytest`.
+
+## Gemini player research
+
+Select a player and click **Research player** to check recent availability,
+injuries, rest, minutes restrictions, and team news alongside the forecast.
+Research does not change the numerical prediction or run automatically.
+
+In the project-root `.env`, set `GEMINI_API_KEY` to your Gemini API key and
+`STUB_MODE=0`, then restart the API. Keep the key server-side; do not put it in
+frontend variables or commit it. `GEMINI_MODEL` defaults to `gemini-2.5-flash`;
+use a model that supports Google Search grounding and structured output.
+`RESEARCH_TIMEOUT_SECONDS` defaults to 60. Missing keys and quota/network errors
+appear in the research panel without preventing predictions.
+
+The LangGraph workflow resolves the player/game from the NBA roster, asks Gemini
+to search recent public reports with Google Search grounding, summarizes only
+cited passages, and validates citation IDs and report dates. Links and Google
+Search suggestions accompany results. Suggestions render in a sandboxed frame;
+web text is treated as evidence, not executable instructions.
+No custom site scraper or second search API key is required.
+
+The panel shows the latest **reported** status, its report date, and when research
+was checked. Missing, conflicting, undated, or stale status evidence remains
+unconfirmed; no report does not mean a player is available. Reports may change
+before tipoff. Successful research is cached in memory for five minutes (up to
+128 player/game contexts); research is not saved to forecast history.
+A search plus structured summary can use two Gemini calls and search-grounding
+quota. Clicking again within five minutes reuses the cached result.
+`STUB_MODE=1` returns an explicitly synthetic unknown status and never calls Gemini,
+even when a key is configured.
+
+References: [Gemini search grounding](https://ai.google.dev/gemini-api/docs/google-search/),
+[Gemini structured output](https://ai.google.dev/gemini-api/docs/structured-output),
+[LangGraph](https://docs.langchain.com/oss/python/langgraph/graph-api).
