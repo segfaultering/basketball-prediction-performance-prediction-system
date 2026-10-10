@@ -333,7 +333,6 @@ input {
 input::placeholder {
   color: var(--muted);
 }
-:root[data-theme="dark"] .team-badge,
 :root[data-theme="dark"] .player-avatar {
   color: color-mix(in srgb, var(--team-color) 65%, var(--ink));
 }
@@ -498,23 +497,31 @@ input::placeholder {
   align-items: center;
   margin: 13px 0 9px;
 }
+/* A light backing preserves the original logo colors in either theme. */
 .team-badge {
   display: grid;
   place-items: center;
-  color: var(--team-color);
-  background: color-mix(in srgb, var(--team-color) 10%, transparent);
-  width: 39px;
-  height: 39px;
-  border-radius: 50%;
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  padding: 4px;
+  border-radius: 10px;
+  background: #fff;
+  color: #26332a;
+  border: 1px solid var(--line);
   font-family: "Space Grotesk", sans-serif;
   font-size: 14px;
   font-weight: 700;
-  border: 1px solid color-mix(in srgb, var(--team-color) 13%, transparent);
+}
+.team-badge img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 .team-badge.small {
-  width: 28px;
-  height: 28px;
-  font-size: 14px;
+  width: 36px;
+  height: 36px;
 }
 .matchup-at {
   color: var(--muted);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ForecastTracking from "./ForecastTracking";
 import ThemeToggle from "./ThemeToggle";
+import TeamBadge from "./TeamBadge";
 import Sidebar from "./Sidebar";
 import type { View } from "./Sidebar";
 import {
@@ -69,16 +70,6 @@ const errorText = (error: unknown) =>
     ? error.message
     : "Something went wrong. Please try again.";
 
-function TeamBadge({ team, small = false }: { team: string; small?: boolean }) {
-  return (
-    <span
-      className={`team-badge ${small ? "small" : ""}`}
-      style={{ "--team-color": teamColor(team) } as React.CSSProperties}
-    >
-      {team}
-    </span>
-  );
-}
 function StepTitle({
   step,
   title,
