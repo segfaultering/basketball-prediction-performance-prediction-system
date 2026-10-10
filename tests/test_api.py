@@ -83,6 +83,23 @@ def test_away_player_and_minutes(client):
     assert result.json()["projected_minutes"] == 15
 
 
+def test_automatic_career_training_and_baseline_response(client):
+    request = {"player_id": "demo-player", "game_id": "demo-game"}
+    response = client.post("/predictions", json=request)
+    assert response.status_code == 200
+    result = response.json()
+    assert result["model"]["status"] == "trained"
+    assert result["model"]["source"] == "stub"
+    assert result["history_games"] > 24
+    assert (
+        result["baseline"]["stats"]["points"]
+        == result["stats"]["points"]["baseline_prediction"]
+    )
+    repeated = client.post("/predictions", json=request).json()
+    assert repeated["model"]["cache_hit"] is True
+    assert repeated["stats"] == result["stats"]
+
+
 @pytest.mark.parametrize(
     "changes",
     [

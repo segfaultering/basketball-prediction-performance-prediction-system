@@ -6,8 +6,10 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 from .data import ScheduledGame, read_logs
-from .model import backtest, predict
+from .learning import create_backend
+from .prediction_engine import PredictionEngine
 from .providers import create_provider
+from .settings import Settings
 
 
 def main():
@@ -15,6 +17,9 @@ def main():
         description="NBA player points, rebounds, assists, steals and blocks predictions"
     )
     parser.add_argument("--cache-dir", help="Override PROJ_DIR/.cache/bpps")
+    parser.add_argument(
+        "--backend", help="Correction model backend (default: MODEL_BACKEND or ridge)"
+    )
     parser.add_argument(
         "--refresh", action="store_true", help="Bypass NBA response cache"
     )
@@ -36,10 +41,23 @@ def main():
         choices=["Regular Season", "Playoffs", "Pre Season"],
     )
     sync.add_argument("--output", type=Path, required=True)
-    for name in ("predict", "backtest"):
+    for name in ("predict", "backtest", "train"):
         command = commands.add_parser(name)
         command.add_argument("--player-id", required=True)
-        command.add_argument("--csv", type=Path, required=True)
+        command.add_argument(
+            "--csv",
+            type=Path,
+            help="Optional history override; otherwise retrieve full career",
+        )
+        command.add_argument(
+            "--season-type",
+            default="Regular Season",
+            choices=["Regular Season", "Playoffs", "Pre Season"],
+        )
+        if name == "train":
+            command.add_argument(
+                "--as-of", type=date.fromisoformat, default=datetime.now(UTC).date()
+            )
         if name == "predict":
             command.add_argument("--game-id", required=True)
             command.add_argument(
@@ -56,6 +74,21 @@ def main():
     args = parser.parse_args()
     try:
         client = create_provider(args.cache_dir, args.refresh)
+        config = Settings()
+        engine = None
+        if args.command in ("predict", "backtest", "train"):
+            engine = PredictionEngine(
+                Path(args.cache_dir) / "models"
+                if args.cache_dir
+                else config.cache_dir / "models",
+                source="csv"
+                if args.csv
+                else "stub"
+                if config.stub_mode == 1
+                else "nba",
+                season_type=args.season_type,
+                backend=create_backend(args.backend or config.model_backend),
+            )
         schedule: list[ScheduledGame] = []
         if args.command in ("games", "predict"):
             schedule = (
@@ -85,7 +118,30 @@ def main():
                 writer.writerows(asdict(g) for g in logs)
             result = {"output": str(args.output), "games": len(logs)}
         elif args.command == "backtest":
-            result = backtest(read_logs(args.csv), args.player_id)
+            assert engine is not None
+            logs = (
+                read_logs(args.csv)
+                if args.csv
+                else client.career_logs(
+                    args.player_id, datetime.now(UTC).date(), args.season_type
+                )
+            )
+            result = engine.backtest(logs, args.player_id)
+        elif args.command == "train":
+            assert engine is not None
+            logs = (
+                read_logs(args.csv)
+                if args.csv
+                else client.career_logs(args.player_id, args.as_of, args.season_type)
+            )
+            artifact = engine.train(
+                logs, args.player_id, args.as_of, refresh=args.refresh
+            )
+            result = {k: v for k, v in artifact.items() if k != "stats"}
+            result["stats"] = {
+                s: {k: v for k, v in entry.items() if k != "model"}
+                for s, entry in artifact["stats"].items()
+            }
         else:
             game = next(
                 (g for g in schedule if str(g["game_id"]) == args.game_id), None
@@ -111,10 +167,17 @@ def main():
                 if not any(str(p["PLAYER_ID"]) == args.player_id for p in roster):
                     raise ValueError("Player is not on this team's current roster")
             home = team == game["home_team"]
-            result = predict(
-                read_logs(args.csv),
+            assert engine is not None
+            target_date = date.fromisoformat(game["date"])
+            logs = (
+                read_logs(args.csv)
+                if args.csv
+                else client.career_logs(args.player_id, target_date, args.season_type)
+            )
+            result = engine.prediction(
+                logs,
                 args.player_id,
-                date.fromisoformat(game["date"]),
+                target_date,
                 game["away_team"] if home else game["home_team"],
                 home,
                 args.minutes,

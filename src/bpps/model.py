@@ -3,7 +3,7 @@
 import math
 from dataclasses import dataclass
 from datetime import date
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 STATS = ("points", "rebounds", "assists", "steals", "blocks")
 
@@ -11,6 +11,8 @@ STATS = ("points", "rebounds", "assists", "steals", "blocks")
 class StatEstimate(TypedDict):
     prediction: float
     approximate_80pct_range: list[float]
+    baseline_prediction: NotRequired[float]
+    model_correction: NotRequired[float]
 
 
 @dataclass(frozen=True)

@@ -1,13 +1,16 @@
 """Shared prediction workflow for the REST API and frontend."""
 
-from datetime import date
+from datetime import UTC, date, datetime
+from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from .model import backtest, predict
+from .learning import create_backend
+from .prediction_engine import PredictionEngine
 from .providers import NBAClient, StubClient
+from .settings import Settings
 
 Season = Annotated[str, Field(pattern=r"^\d{4}-\d{2}$")]
 SeasonType = Literal["Regular Season", "Playoffs", "Pre Season"]
@@ -16,7 +19,7 @@ SeasonType = Literal["Regular Season", "Playoffs", "Pre Season"]
 class HistoryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     player_id: str = Field(min_length=1, max_length=40)
-    seasons: list[Season] = Field(min_length=1, max_length=5)
+    seasons: list[Season] | None = Field(default=None, min_length=1, max_length=5)
     season_type: SeasonType = "Regular Season"
 
 
@@ -32,9 +35,29 @@ def validate_season(season):
 
 
 class PredictionService:
-    def __init__(self, provider: NBAClient | StubClient):
+    def __init__(
+        self,
+        provider: NBAClient | StubClient,
+        cache_dir: Path | None = None,
+        backend_name: str = "ridge",
+    ):
         self.provider = provider
         self.stub = isinstance(provider, StubClient)
+        self.cache_dir = (
+            cache_dir if cache_dir is not None else Settings().cache_dir / "models"
+        )
+        self.backend = create_backend(backend_name)
+        self.engines: dict[str, PredictionEngine] = {}
+
+    def engine(self, season_type: str) -> PredictionEngine:
+        if season_type not in self.engines:
+            self.engines[season_type] = PredictionEngine(
+                self.cache_dir,
+                source="stub" if self.stub else "nba",
+                season_type=season_type,
+                backend=self.backend,
+            )
+        return self.engines[season_type]
 
     def games(self, target: date):
         return {
@@ -52,14 +75,19 @@ class PredictionService:
             "players": self.provider.roster(team_id, validate_season(season)),
         }
 
-    def history(self, body):
-        logs = []
-        for season in dict.fromkeys(body.seasons):
-            logs.extend(
-                self.provider.logs(
-                    body.player_id, validate_season(season), body.season_type
-                )
+    def history(self, body: HistoryRequest, through: date | None = None):
+        if body.seasons is None:
+            logs = self.provider.career_logs(
+                body.player_id, through or datetime.now(UTC).date(), body.season_type
             )
+        else:
+            logs = []
+            for season in dict.fromkeys(body.seasons):
+                logs.extend(
+                    self.provider.logs(
+                        body.player_id, validate_season(season), body.season_type
+                    )
+                )
         if not logs:
             raise HTTPException(
                 404, "No player history found for the requested seasons"
@@ -91,9 +119,9 @@ class PredictionService:
             raise HTTPException(
                 422, "Player is not on either participating team's roster"
             )
-        logs = self.history(body)
+        logs = self.history(body, game_date)
         try:
-            result = predict(
+            result = self.engine(body.season_type).prediction(
                 logs,
                 body.player_id,
                 game_date,
@@ -118,7 +146,7 @@ class PredictionService:
     def evaluate(self, body: HistoryRequest):
         logs = self.history(body)
         try:
-            result = backtest(logs, body.player_id)
+            result = self.engine(body.season_type).backtest(logs, body.player_id)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
         return {**result, "stub_mode": self.stub}

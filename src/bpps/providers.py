@@ -76,6 +76,17 @@ class StubClient:
             for i in range(24)
         ]
 
+    def career_logs(
+        self, player_id: str, through: date, season_type: str = "Regular Season"
+    ) -> list[GameLog]:
+        last = through.year if through.month >= 7 else through.year - 1
+        logs: list[GameLog] = []
+        for year in range(last - 4, last + 1):
+            logs.extend(
+                self.logs(player_id, f"{year}-{(year + 1) % 100:02d}", season_type)
+            )
+        return logs
+
 
 def create_provider(cache_dir=None, refresh=False, settings: Settings | None = None):
     config = settings if settings is not None else Settings()

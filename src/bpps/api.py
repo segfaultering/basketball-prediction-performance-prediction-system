@@ -1,10 +1,10 @@
-"""FastAPI HTTP interface with a Gradio frontend at /ui."""
+"""FastAPI HTTP interface with a React frontend at /ui/."""
 
 from datetime import UTC, date, datetime
 from typing import Annotated
 
 from fastapi import FastAPI, Query, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse
 
 from .providers import create_provider
 from .service import HistoryRequest, PredictionRequest, PredictionService, Season
@@ -14,7 +14,9 @@ from .settings import Settings
 def create_app(settings: Settings | None = None, include_ui: bool = True):
     config = settings if settings is not None else Settings()
     provider = create_provider(settings=config)
-    service = PredictionService(provider)
+    service = PredictionService(
+        provider, config.cache_dir / "models", config.model_backend
+    )
     application = FastAPI(
         title="Basketball Performance Prediction API",
         debug=config.debug == 1,
@@ -50,17 +52,9 @@ def create_app(settings: Settings | None = None, include_ui: bool = True):
         return service.evaluate(body)
 
     if include_ui:
-        import gradio as gr
+        from .frontend import mount_frontend
 
-        from .frontend import build_frontend
-
-        @application.get("/", include_in_schema=False)
-        def index():
-            return RedirectResponse("/ui/")
-
-        application = gr.mount_gradio_app(
-            application, build_frontend(service), path="/ui"
-        )
+        mount_frontend(application)
     return application
 
 

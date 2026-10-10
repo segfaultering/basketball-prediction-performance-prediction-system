@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     proj_dir: Path = PROJECT_ROOT
     stub_mode: Literal[0, 1] = 0
     debug: Literal[0, 1] = 0
+    model_backend: str = "ridge"
 
     @field_validator("stub_mode", "debug", mode="before")
     @classmethod

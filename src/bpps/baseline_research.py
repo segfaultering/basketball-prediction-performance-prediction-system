@@ -10,39 +10,24 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Literal, TypedDict
 
+from .baseline import (
+    TARGET_STATS,
+    Candidate,
+    candidates,
+    history_digest,
+    rates,
+    season_name,
+    season_start,
+    validate_logs,
+)
 from .data import NBAClient, read_logs
 from .model import GameLog, predict
 from .settings import PROJECT_ROOT
 
-RESEARCH_STATS = ("points", "rebounds", "assists")
+RESEARCH_STATS = TARGET_STATS
+
 DEFAULT_CACHE = PROJECT_ROOT / ".cache" / "bpps" / "research"
-Window = Literal["career", "previous_three"]
 Source = Literal["nba", "csv", "synthetic"]
-
-
-def season_start(day: date) -> int:
-    """July-to-June labels, consistent with the application."""
-    return day.year if day.month >= 7 else day.year - 1
-
-
-def season_name(start: int) -> str:
-    return f"{start}-{(start + 1) % 100:02d}"
-
-
-def validate_logs(logs: list[GameLog], player_id: str) -> list[GameLog]:
-    seen: set[tuple[str, str]] = set()
-    for game in logs:
-        key = (game.player_id, game.game_id)
-        if key in seen:
-            raise ValueError(f"Duplicate player/game: {key}")
-        seen.add(key)
-    history = sorted(
-        (g for g in logs if g.player_id == player_id),
-        key=lambda g: (g.date, g.game_id),
-    )
-    if not history:
-        raise ValueError(f"No history for player {player_id}")
-    return history
 
 
 def synthetic_history(player_id: str, start: int, end: int) -> list[GameLog]:
@@ -88,18 +73,6 @@ class Dataset:
             {"season": s, "appearances": counts[s], "positive_minutes": positive[s]}
             for s in self.requested_seasons
         ]
-
-
-def history_digest(logs: list[GameLog]) -> str:
-    # CSV ingestion returns floats; equivalent integer inputs must hash identically.
-    records = []
-    for game in logs:
-        record = asdict(game)
-        for field in ("minutes", "points", "rebounds", "assists", "steals", "blocks"):
-            record[field] = float(record[field])
-        records.append(record)
-    payload = json.dumps(records, default=str, sort_keys=True)
-    return hashlib.sha256(payload.encode()).hexdigest()
 
 
 def load_history(
@@ -179,13 +152,6 @@ def load_history(
     return Dataset(logs, player_id, source, seasons, history_digest(logs))
 
 
-def rates(logs: list[GameLog]) -> dict[str, float] | None:
-    minutes = sum(g.minutes for g in logs)
-    if minutes == 0:
-        return None
-    return {s: sum(getattr(g, s) for g in logs) / minutes for s in RESEARCH_STATS}
-
-
 @dataclass(frozen=True)
 class Features:
     game: GameLog
@@ -231,48 +197,6 @@ def build_features(logs: list[GameLog], player_id: str) -> list[Features]:
             )
         )
     return features
-
-
-@dataclass(frozen=True)
-class Candidate:
-    window: Window
-    kind: Literal["fixed", "adaptive"]
-    value: float
-
-    @property
-    def name(self) -> str:
-        return f"{self.window}/{self.kind}/{self.value:g}"
-
-    def season_weight(self, minutes: float) -> float:
-        return self.value if self.kind == "fixed" else minutes / (minutes + self.value)
-
-    def estimate(self, features: Features, stat: str) -> float:
-        historical = (
-            features.career_rates
-            if self.window == "career"
-            else features.previous_three_rates
-        )
-        current = features.season_rates
-        if historical is None and current is None:
-            raise ValueError("No rate history available")
-        if historical is None:
-            assert current is not None
-            rate = current[stat]
-        elif current is None:
-            rate = historical[stat]
-        else:
-            weight = self.season_weight(features.season_minutes)
-            rate = (1 - weight) * historical[stat] + weight * current[stat]
-        return rate * features.estimated_minutes
-
-
-def candidates() -> list[Candidate]:
-    """Tie order: recent history, fixed weights ascending, then adaptive k ascending."""
-    result: list[Candidate] = []
-    for window in ("previous_three", "career"):
-        result.extend(Candidate(window, "fixed", v) for v in (0, 0.25, 0.5, 0.75, 1))
-        result.extend(Candidate(window, "adaptive", k) for k in (100, 300, 600, 1200))
-    return result
 
 
 class Score(TypedDict):

@@ -9,7 +9,12 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, NotRequired, TypedDict
 
-from nba_api.stats.endpoints import commonteamroster, playergamelog, scheduleleaguev2
+from nba_api.stats.endpoints import (
+    commonplayerinfo,
+    commonteamroster,
+    playergamelog,
+    scheduleleaguev2,
+)
 from requests.exceptions import RequestException
 
 from .model import GameLog
@@ -93,6 +98,7 @@ class NBAClient:
                 "SeasonGames": "season_games",
                 "CommonTeamRoster": "common_team_roster",
                 "PlayerGameLog": "player_game_log",
+                "CommonPlayerInfo": "common_player_info",
             }[dataset]
             table = getattr(response, attribute).get_dict()
             rows = [
@@ -148,7 +154,7 @@ class NBAClient:
             "CommonTeamRoster",
         )
 
-    def logs(self, player_id, season, season_type="Regular Season"):
+    def logs(self, player_id, season, season_type="Regular Season", ttl=3600):
         rows = self.request(
             playergamelog.PlayerGameLog,
             {
@@ -158,6 +164,7 @@ class NBAClient:
                 "league_id_nullable": "00",
             },
             "PlayerGameLog",
+            ttl=ttl,
         )
         return [
             GameLog(
@@ -173,3 +180,43 @@ class NBAClient:
             )
             for r in rows
         ]
+
+    def career_logs(
+        self, player_id: str, through: date, season_type: str = "Regular Season"
+    ) -> list[GameLog]:
+        info = self.request(
+            commonplayerinfo.CommonPlayerInfo,
+            {"player_id": player_id, "league_id_nullable": "00"},
+            "CommonPlayerInfo",
+            ttl=86400,
+        )
+        if not info:
+            return []
+        try:
+            first = int(info[0]["FROM_YEAR"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(
+                "NBA player information has no valid career start"
+            ) from exc
+        last = through.year if through.month >= 7 else through.year - 1
+        if not 1946 <= first <= last:
+            raise ValueError("NBA player information has an invalid career start")
+        today = datetime.now(UTC).date()
+        current = today.year if today.month >= 7 else today.year - 1
+        logs: list[GameLog] = []
+        for year in range(first, last + 1):
+            season = f"{year}-{(year + 1) % 100:02d}"
+            try:
+                logs.extend(
+                    self.logs(
+                        player_id,
+                        season,
+                        season_type,
+                        ttl=3600 if year >= current else 365 * 86400,
+                    )
+                )
+            except (ValueError, KeyError, TypeError) as exc:
+                raise ValueError(
+                    f"Incomplete career history at {season}: {exc}"
+                ) from exc
+        return logs

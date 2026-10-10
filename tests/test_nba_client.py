@@ -1,3 +1,4 @@
+from datetime import date
 from types import SimpleNamespace
 
 import pytest
@@ -11,6 +12,47 @@ def table(rows):
     return SimpleNamespace(
         get_dict=lambda: {"headers": headers, "data": [list(r.values()) for r in rows]}
     )
+
+
+def test_career_history_uses_player_debut_and_long_lived_completed_cache(
+    tmp_path, monkeypatch
+):
+    def info(**kwargs):
+        assert kwargs == {
+            "player_id": "201939",
+            "league_id_nullable": "00",
+            "timeout": 20,
+        }
+        return SimpleNamespace(common_player_info=table([{"FROM_YEAR": 2022}]))
+
+    calls = []
+
+    def logs(player_id, season, season_type, ttl):
+        calls.append((player_id, season, season_type, ttl))
+        return []
+
+    monkeypatch.setattr("bpps.data.commonplayerinfo.CommonPlayerInfo", info)
+    client = NBAClient(tmp_path)
+    monkeypatch.setattr(client, "logs", logs)
+    assert client.career_logs("201939", date(2024, 3, 1)) == []
+    assert calls == [
+        ("201939", "2022-23", "Regular Season", 365 * 86400),
+        ("201939", "2023-24", "Regular Season", 365 * 86400),
+    ]
+
+
+def test_incomplete_career_download_fails_explicitly(tmp_path, monkeypatch):
+    client = NBAClient(tmp_path)
+    monkeypatch.setattr(
+        client, "request", lambda *args, **kwargs: [{"FROM_YEAR": 2022}]
+    )
+
+    def unavailable(*args, **kwargs):
+        raise ValueError("blocked")
+
+    monkeypatch.setattr(client, "logs", unavailable)
+    with pytest.raises(ValueError, match="Incomplete career history at 2022-23"):
+        client.career_logs("201939", date(2024, 3, 1))
 
 
 def test_roster_package_parameters_and_cache(tmp_path, monkeypatch):

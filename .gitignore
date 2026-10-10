@@ -17,3 +17,9 @@ wheels/
 
 # Local environment configuration
 .env
+
+# React build and browser tests
+node_modules/
+*.tsbuildinfo
+test-results/
+playwright-report/

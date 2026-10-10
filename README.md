@@ -25,15 +25,17 @@ uv run bpps backtest --csv examples/history.csv --player-id demo-player
 
 1. List upcoming games with `uv run bpps games --date YYYY-MM-DD`. Dates are UTC. Copy the game ID, team ID, and team tricode from the result.
 2. Find the player with `uv run bpps players --team-id TEAM_ID --season 2025-26` (use the appropriate season).
-3. Download history with `uv run bpps sync --player-id PLAYER_ID --season 2025-26 --output history.csv`. `--season-type` accepts `Regular Season`, `Playoffs`, or `Pre Season`. For early-season predictions, previous-season history may be necessary. You can concatenate seasons into a single CSV with one header and no duplicate player/game rows.
-4. Run `uv run bpps predict --csv history.csv --game-id GAME_ID --player-id PLAYER_ID --team LAL`. Add `--minutes 32` to supply your own minutes expectation.
-5. Evaluate history with `uv run bpps backtest --csv history.csv --player-id PLAYER_ID`.
+3. Run `uv run bpps predict --game-id GAME_ID --player-id PLAYER_ID --team LAL`. Career history is retrieved automatically, and a player-specific baseline and correction model are trained or reused. Add `--minutes 32` to supply your own minutes expectation.
+4. Train ahead of a prediction with `uv run bpps train --player-id PLAYER_ID`. This prints blend parameters, chronological evaluation metrics, and whether each correction is enabled.
+5. Evaluate history with `uv run bpps backtest --player-id PLAYER_ID`. Full-career backtests refit models at each eligible game and can be slow; use `--csv` with a smaller historical dataset for a focused evaluation.
 
-Live mode checks that the game is scheduled, the team participates, and the player is on the team's roster. Roster membership does not guarantee availability or minutes. NBA JSON responses are cached for one hour under `.cache/bpps`. Global `--refresh` bypasses the cache, e.g. `uv run bpps --refresh games --date YYYY-MM-DD`.
+CSV is an optional history override for `predict`, `train`, and `backtest`. `bpps sync` remains available to export a single season. `--season-type` accepts `Regular Season`, `Playoffs`, or `Pre Season`.
 
-Live data is retrieved with the [`nba_api` Python package](https://github.com/swar/nba_api): `ScheduleLeagueV2` for the season schedule, `CommonTeamRoster` for rosters, and `PlayerGameLog` for player history. The package handles NBA headers and endpoint-specific parsing. No API key is required. The schedule defaults to the current season (July-to-June season naming); the games endpoint filters it by UTC date.
+Live mode checks that the game is scheduled, the team participates, and the player is on the team's roster. Roster membership does not guarantee availability or minutes. NBA JSON responses are cached under `.cache/bpps`. Schedule, roster, and current-season history have a one-hour lifetime. Career retrieval caches completed seasons for a year and player metadata for a day. Global `--refresh` bypasses the NBA cache and explicitly rebuilds models for `train`, e.g. `uv run bpps --refresh train --player-id PLAYER_ID`.
 
-Schedule, roster, and history retrieval have been verified against the live service in this environment. NBA endpoints can still block or time out because `nba_api` uses NBA's servers. Failures produce a clear error rather than synthetic fallback data. Responses are cached for one hour, with a separate cache namespace from the old direct-HTTP adapter. Corrupt cached responses are refetched. `STUB_MODE=1` continues to use only local synthetic data and never calls the package's HTTP layer.
+Live data is retrieved with the [`nba_api` Python package](https://github.com/swar/nba_api): `ScheduleLeagueV2` for schedules, `CommonTeamRoster` for rosters, `CommonPlayerInfo` for the career starting season, and `PlayerGameLog` for history. The package handles NBA headers and endpoint-specific parsing. No API key is required. The schedule defaults to the current season (July-to-June naming); games are filtered by UTC date. An incomplete career download fails explicitly rather than training on an undisclosed partial history.
+
+NBA endpoints can block or time out because `nba_api` uses NBA's servers. Failures produce a clear error rather than synthetic fallback data. Corrupt cached responses are refetched. `STUB_MODE=1` uses local synthetic data and never calls the package's HTTP layer. Stub model artifacts are isolated from live artifacts.
 
 ### Your own data
 
@@ -55,11 +57,21 @@ Status `1` means scheduled. Local schedule mode trusts your supplied player/team
 
 ## Model and evaluation
 
-The model takes up to 60 positive-minute appearances strictly before the target date, with a recency half-life of ten appearances. It estimates minutes and per-minute production, then applies small, sample-size-shrunk home/away and opponent-history adjustments. A minimum of five historical appearances is required. It supports a 0–48 minute override. An old-history warning appears after a 30-day gap.
+For **points, rebounds, and assists**, the production baseline blends prior-season and current-season per-minute rates, then multiplies by expected minutes. Historical windows and weight candidates are shared with the research notebook. Expected minutes are the mean of the last ten positive-minute appearances, capped at 48, with an optional 0–48 minute override. Each prediction needs at least five earlier positive-minute appearances; same-day and future games are excluded.
 
-The output ranges use a normal approximation with historical residual variance and a count-variance floor. They are heuristic, **not calibrated confidence intervals**. Injury status, starting lineups, trades, role changes, rest, pace, and current opponent defense are not modeled. This is an interpretable initial baseline; predictive usefulness must be established on real held-out data.
+Each player has three separate **Ridge correction models**. Inputs include historical, season, and recent per-minute production, recent minutes, home/away status, and rest days. The target is actual per-minute production minus the baseline rate. Training weights examples by playing time. Scaling is fitted on training data only. Actual target-game minutes are used for training labels/weights and evaluation outcomes, never pregame input features.
 
-Backtesting uses expanding historical windows, never the actual target-game minutes, and reports MAE, RMSE, last-ten-games mean MAE, and empirical range coverage for each stat. It requires six or more appearances on distinct dates. For model selection, keep a separate later season as a final holdout. No real-data accuracy claim is made.
+At least 50 distinct target dates after the five-game warm-up are needed to train. Dates are divided chronologically into approximately 70% training, 15% tuning, and 15% validation, with minimums of 30/10/10 dates. Blend parameters are selected on the training partition. Ridge regularization (`alpha` of 1, 10, or 100) is chosen on tuning games. After refitting on training and tuning, each correction is enabled only if it reduces MAE against the blended baseline on validation games. It is then refitted on all available earlier games with the selected parameters frozen. Validation metrics describe the earlier evaluation fit, not the final fit's training error.
+
+Short histories use a previous-three-season baseline with adaptive season weight `season_minutes / (season_minutes + 600)`; if only one rate component exists, it is used alone. These fallback settings are heuristics. Trained blend weights are player-specific, not universal Curry weights. **Steals and blocks** retain the original recency-weighted per-minute estimator and its small venue/opponent adjustments, using the same expected minutes.
+
+Models are saved as validated JSON under `PROJ_DIR/.cache/bpps/models`. Reuse requires matching player, data fingerprint, source mode, season type, backend, feature schema, and training version. New positive-minute history or corrected data rebuilds the model. Historical cutoffs cannot reuse future-trained artifacts. Corrupt/incompatible artifacts are rebuilt; writes are atomic. No pickle deserialization is used. The response includes the baseline, model correction, selection metrics, and cache status; the frontend shows baseline and final prediction side by side.
+
+The `CorrectionBackend`/`CorrectionModel` protocols in `bpps.learning` separate fitting, inference, and JSON serialization from history, baseline arithmetic, caching, and evaluation. Add a factory in `create_backend` to support another backend. `MODEL_BACKEND=ridge` is the default; CLI `--backend` overrides it. Unknown backends fail explicitly.
+
+Output ranges use a normal approximation with validation residual variance (historical baseline residuals for short histories) and a count-variance floor. They are heuristic, **not calibrated confidence intervals**. Injury status, starting lineups, trades, explicit role changes, pace, and current opponent defense are not modeled. An old-history warning appears after a 30-day gap. Validation results are per-player model-selection evidence, not a general accuracy claim or an untouched final test.
+
+Backtesting uses expanding historical windows, retraining and selecting only on earlier dates, and reports MAE, RMSE, blended-baseline MAE, last-ten-games mean MAE, and empirical range coverage. It requires at least one target game with five earlier positive-minute appearances. Historical evaluation does not save a model for every cutoff. Keep a separate later season as a final holdout for further model development.
 
 ## Checks
 
@@ -114,7 +126,8 @@ The experiment reports MAE, RMSE, and minutes-estimation error against the exist
 application model and last-ten-game average on identical eligible games. It
 reports both improvements and losses. Predictions remain conditional on playing;
 the proposed blends do not add opponent adjustments or change the CLI, API, or
-frontend. Reusable calculations live in `bpps.baseline_research`. If you adjust
+frontend by itself. Its blend formulas are shared through `bpps.baseline`, and
+research orchestration lives in `bpps.baseline_research`. If you adjust
 the formula after inspecting holdout results, reserve a new untouched period for
 final evaluation.
 
@@ -138,7 +151,7 @@ Open http://127.0.0.1:8000/docs for interactive endpoint documentation, or http:
 
 `STUB_MODE=1` enables synthetic local data; `STUB_MODE=0` selects real NBA data. If absent from both the environment and `.env`, it defaults to `0`. Only `0` and `1` are accepted. Invalid values fail startup. The server reads this setting at application creation; restart to change modes. CLI commands also honor it. `pydantic-settings` automatically loads the project-root `.env` for both the API and CLI. Shell environment variables override `.env` values. `.env.example` is a template, not loaded at runtime. Existing `.env` contents are preserved.
 
-Stub mode uses an entirely local provider with no NBA requests or cache reads. It provides today's UTC `demo-game` (LAL versus BOS), players `demo-player` and `demo-celtics-player`, and deterministic synthetic histories. Responses include `stub_mode`; synthetic predictions also contain an explicit warning. The stub schedule date advances daily. Use the corresponding current season, or a previous season, for history.
+Stub mode uses an entirely local provider with no NBA requests or NBA cache reads. It provides today's UTC `demo-game` (LAL versus BOS), players `demo-player` and `demo-celtics-player`, and deterministic synthetic histories. Automatic career mode supplies five synthetic seasons and exercises training and persistence. Responses include `stub_mode`; synthetic predictions contain an explicit warning. The stub schedule date advances daily.
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
@@ -153,10 +166,10 @@ Try a stub prediction (adjust seasons as appropriate):
 ```bash
 curl -X POST http://127.0.0.1:8000/predictions \
   -H 'Content-Type: application/json' \
-  -d '{"game_id":"demo-game","player_id":"demo-player","seasons":["2025-26"],"minutes":32}'
+  -d '{"game_id":"demo-game","player_id":"demo-player","minutes":32}'
 ```
 
-For `/backtests`, send `player_id` and `seasons` without `game_id` or `minutes`. Both accept optional `season_type` (`Regular Season`, `Playoffs`, or `Pre Season`). `seasons` accepts one to five season strings; duplicate seasons are fetched once. The API downloads history itself, so no local CSV path is needed. Prediction requests infer the team from the selected game's rosters. Response model details and caveats match the CLI above.
+For `/backtests`, send `player_id` without `game_id` or `minutes`. Both requests accept optional `season_type` (`Regular Season`, `Playoffs`, or `Pre Season`). Omit `seasons` for automatic career history, or supply one to five season strings as an explicit override; duplicates are fetched once. The API downloads history itself, so no local CSV path is needed. Prediction requests infer the team from the selected game's rosters. Existing requests with `seasons` remain supported.
 
 Errors return JSON `detail`: `404` for a missing game/history, `409` for a game already started, `422` for invalid inputs, roster mismatch, or insufficient history, and `502` when NBA data retrieval fails. To use live mode, start with `STUB_MODE=0 uv run uvicorn bpps.api:app --reload`.
 
@@ -167,6 +180,7 @@ The shared `Settings` model loads `.env` using UTF-8 from the source project roo
 - `STUB_MODE=1` for local synthetic data, or `0` for live NBA data.
 - `DEBUG=1` for FastAPI debug mode, or `0` to disable it.
 - `PROJ_DIR=/absolute/path/to/project` for the base directory of the NBA response cache (`PROJ_DIR/.cache/bpps`). The default is the source project root. CLI `--cache-dir` overrides this cache location. `PROJ_DIR` does not relocate the `.env` file.
+- `MODEL_BACKEND=ridge` for the correction backend. Models are stored beneath the same base cache directory.
 
 `STUB_MODE` and `DEBUG` accept only `0` or `1` and default to `0`. Unknown dotenv keys are ignored. Restart the API after changing settings. `.env` is ignored by Git; `.env.example` remains the shared template.
 
@@ -176,21 +190,34 @@ With your `.env` configured, start using:
 uv run uvicorn bpps.api:app --reload
 ```
 
-## Gradio frontend
+## React frontend
 
-The same FastAPI server now serves a simple frontend at **http://127.0.0.1:8000/ui/**. No second server is required:
+Courtside is a React + TypeScript dashboard served by FastAPI at **http://127.0.0.1:8000/ui/**. Install Node.js 22.12+ (or 20.19+) and build the interface once:
 
 ```bash
-uv sync
+cd frontend
+npm ci
+npm run build
+cd ..
 uv run uvicorn bpps.api:app --reload
 ```
 
-Opening http://127.0.0.1:8000/ redirects to the frontend; REST documentation remains at `/docs`.
+Opening `/` redirects to `/ui/`; API documentation remains at `/docs`. Rebuild after frontend changes. The API remains usable before building; `/ui/` shows build instructions until you build and restart the server.
 
-1. Choose a UTC game date and click **Load games**.
-2. Select a scheduled game. The player dropdown loads rosters for both teams.
-3. Select a player and choose comma-separated history seasons. The defaults include the current and previous season.
-4. Optionally enable **Set expected minutes** and adjust the slider; otherwise minutes are estimated.
-5. Click **Predict player stats** to see points, rebounds, assists, steals, and blocks with approximate ranges. Expand **Prediction details** for the full response.
+Choose a UTC date and matchup, search either roster, select a player, and generate a forecast. Expected minutes default to recent playing time; enable the minute control to override them. History defaults to the full career, with optional season overrides. Points, rebounds, and assists show their baseline alongside the final projection. Model insights explain which corrections passed validation and offer a chronological backtest. Download the full prediction as JSON for further analysis.
 
-The frontend uses the same prediction service and `.env` settings as the REST API. `STUB_MODE=0` uses real NBA data. For an offline demo, set `STUB_MODE=1`, restart, and choose today's UTC date. Synthetic data is clearly labeled. Missing games and NBA errors are shown in the interface. Loading a different game or player clears previous prediction results. Gradio analytics are disabled; the frontend does not create a public share link.
+For an offline demo, run `STUB_MODE=1 uv run uvicorn bpps.api:app --reload` and choose today's UTC date. Synthetic data is labeled throughout. Live mode uses the existing `.env` settings. Changing a game, player, minutes, or history clears outdated results and cancels pending requests.
+
+For frontend development, start the API on port 8000 and run `npm run dev` from `frontend/`. Open **http://127.0.0.1:5173/ui/**; Vite proxies requests to the API. Fonts are bundled locally; no external font requests are needed.
+
+Frontend checks (from `frontend/`):
+
+```bash
+npm run check
+npm test
+npm run build
+npx playwright install chromium
+npm run test:e2e
+```
+
+The browser tests start a synthetic API on port 8012 and exercise the built interface at desktop and mobile sizes. Run them after building. Python checks remain `uv run pyrefly check`, `uv run ruff check src tests`, `uv run ruff format --check src tests`, and `uv run pytest`.
