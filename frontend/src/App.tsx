@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ForecastTracking from "./ForecastTracking";
+import DailyForecasts from "./DailyForecasts";
 import PlayerResearch from "./PlayerResearch";
 import ThemeToggle from "./ThemeToggle";
 import TeamBadge from "./TeamBadge";
@@ -223,11 +224,13 @@ function StatCard({ stat, result }: { stat: Stat; result: Prediction | null }) {
 export default function App() {
   const [view, setView] = useState<View>("predictions");
   const viewTitle =
-    view === "tracking"
-      ? "Forecast history"
-      : view === "insights"
-        ? "Model insights"
-        : "Predictions";
+    view === "board"
+      ? "Daily forecasts"
+      : view === "tracking"
+        ? "Forecast history"
+        : view === "insights"
+          ? "Model insights"
+          : "Predictions";
   const [help, setHelp] = useState(false);
   const [date, setDate] = useState(utcToday);
   const [refresh, setRefresh] = useState(0);
@@ -463,7 +466,9 @@ export default function App() {
           />
         )}
 
-        {view === "tracking" ? (
+        {view === "board" ? (
+          <DailyForecasts />
+        ) : view === "tracking" ? (
           <ForecastTracking />
         ) : (
           <>

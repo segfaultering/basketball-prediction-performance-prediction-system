@@ -256,6 +256,17 @@ Opening `/` redirects to `/ui/`; API documentation remains at `/docs`. Rebuild a
 
 Choose a UTC date and matchup, search either roster, select a player, and generate a forecast. Expected minutes default to recent playing time; enable the minute control to override them. History defaults to the full career, with optional season overrides. Points, rebounds, and assists show their baseline alongside the final projection. Model insights explain which corrections passed validation and offer a chronological backtest. Download the full prediction as JSON for further analysis.
 
+Open **Daily forecasts** from navigation to select players across the day's
+scheduled matchups. Generate selected forecasts to compare expected minutes and
+all five statistics with approximate ranges. Search and team filters apply to
+both player selection and the result table; forecasts can be sorted by player or
+any projected statistic. Generation uses full career history and recent expected
+minutes, processes one player at a time, and saves successful predictions to
+Forecast history. Failed players can be retried without regenerating successful
+forecasts. **Stop after current player** finishes the active prediction before
+ending the batch. The board's selections and results reset on a date change,
+slate reload, or leaving the page; saved forecasts remain in history.
+
 For an offline demo, run `STUB_MODE=1 uv run uvicorn bpps.api:app --reload` and choose today's UTC date. Synthetic data is labeled throughout. Live mode uses the existing `.env` settings. Changing a game, player, minutes, or history clears outdated results and cancels pending requests.
 
 For frontend development, start the API on port 8000 and run `npm run dev` from `frontend/`. Open **http://127.0.0.1:5173/ui/**; Vite proxies requests to the API. Fonts are bundled locally; no external font requests are needed.

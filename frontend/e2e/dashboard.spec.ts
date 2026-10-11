@@ -8,6 +8,50 @@ async function navigate(page: Page, name: string) {
     .click();
 }
 
+test("generates selected daily forecasts and saves them to history", async ({
+  page,
+}, info) => {
+  await page.goto("/ui/");
+  await navigate(page, "Daily forecasts");
+  const board = page.getByRole("region", { name: "Daily forecast board" });
+  await expect(board.getByRole("checkbox")).toHaveCount(2);
+  await board.getByRole("button", { name: "Select visible players" }).click();
+  await board
+    .getByRole("button", { name: "Generate selected forecasts (2)" })
+    .click();
+  await expect(board.getByRole("status")).toHaveText(
+    "Batch finished: 2 of 2 players processed.",
+    { timeout: 45_000 },
+  );
+  await expect(board.getByRole("table").getByRole("row")).toHaveCount(3);
+  await board.getByLabel("Team", { exact: true }).selectOption("LAL");
+  await expect(board.getByRole("table").getByRole("row")).toHaveCount(2);
+  await board.getByText("Forecast details").click();
+  await expect(board.getByText(/^Saved:/)).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: info.outputPath("daily-forecasts.png"),
+    fullPage: true,
+  });
+  await navigate(page, "Forecast history");
+  await expect(
+    page
+      .locator(".tracking-record")
+      .filter({ hasText: "Demo Lakers Player" })
+      .first(),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator(".tracking-record")
+      .filter({ hasText: "Demo Celtics Player" })
+      .first(),
+  ).toBeVisible();
+});
+
 test("switches themes and preserves the selection across reloads", async ({
   page,
 }, info) => {

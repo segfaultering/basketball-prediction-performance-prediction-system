@@ -8,7 +8,7 @@ import {
   X,
 } from "lucide-react";
 
-export type View = "predictions" | "insights" | "tracking";
+export type View = "predictions" | "insights" | "tracking" | "board";
 
 export default function Sidebar({
   view,
@@ -81,6 +81,14 @@ export default function Sidebar({
           </button>
         </div>
         <nav aria-label="Main navigation">
+          <button
+            className={view === "board" ? "active" : ""}
+            aria-current={view === "board" ? "page" : undefined}
+            onClick={() => select("board")}
+          >
+            <LayoutDashboard size={21} />
+            Daily forecasts
+          </button>
           <button
             className={view === "predictions" ? "active" : ""}
             aria-current={view === "predictions" ? "page" : undefined}
