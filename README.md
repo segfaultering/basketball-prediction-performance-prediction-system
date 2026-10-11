@@ -55,7 +55,23 @@ builds need neither Python training nor NBA access. To update the replay, replac
 the CSV and its manifest, rebuild the snapshot, and update the replay date and
 description in the frontend. Keep the chronological tests passing.
 
-Preview the standalone portfolio build locally:
+Start the portfolio frontend and Docker API with one command from the repository
+root (requires Node/npm, Docker, and curl):
+
+```bash
+./start.sh
+```
+
+Open the URL printed by the launcher (normally **http://localhost:4173/**).
+The launcher installs frontend dependencies,
+builds the frontend and API sequentially, waits for API readiness, and caps the
+API at 1 GB RAM with no swap. Press **Ctrl+C** to stop both services. If ports
+4173 or 8000 are occupied, it tries the next ten ports automatically. To use
+only the historical replay without Docker, run
+`./start.sh --replay-only`. Docker Desktop should have about 3 GB allocated on
+an 8 GB workstation; run tests separately from the launcher.
+
+To build and preview the standalone portfolio frontend manually:
 
 ```bash
 cd frontend
