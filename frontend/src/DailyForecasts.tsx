@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { LABELS, STATS, request, seasonFor, tipoff, utcToday } from "./api";
 import type { Game, Player, Prediction, Stat } from "./api";
 import TeamBadge from "./TeamBadge";
+import { RefreshCw, Search, Sparkles } from "lucide-react";
 
 interface Candidate {
   key: string;
@@ -167,14 +168,10 @@ export default function DailyForecasts() {
       className="tracking-section daily-board"
       aria-label="Daily forecast board"
     >
-      <div className="section-heading">
-        <div>
-          <h2>The day’s slate</h2>
-          <p>Select players across matchups and compare their forecasts.</p>
-        </div>
-        <div className="tracking-actions">
+      <div className="board-toolbar">
+        <div className="board-date-controls">
           <label className="date-picker">
-            Date (UTC)
+            <span className="board-date-label">UTC</span>
             <input
               aria-label="Forecast date (UTC)"
               type="date"
@@ -186,22 +183,58 @@ export default function DailyForecasts() {
             />
           </label>
           <button
-            className="today-button"
+            className="icon-button"
+            aria-label="Reload slate"
+            title="Reload slate"
             disabled={generating || loading}
             onClick={() => setRevision((n) => n + 1)}
           >
-            Reload slate
+            <RefreshCw size={17} />
           </button>
         </div>
+        <div className="board-generate-actions">
+          <span className="board-selection-count">
+            {selected.size} selected
+          </span>
+          {generating ? (
+            <button
+              className="board-stop"
+              onClick={() => {
+                stop.current = true;
+              }}
+            >
+              Stop after current player
+            </button>
+          ) : (
+            <button
+              className="board-generate"
+              disabled={loading || !pending.length}
+              onClick={() => void generate()}
+            >
+              <Sparkles size={17} /> Generate selected forecasts (
+              {pending.length})
+            </button>
+          )}
+        </div>
       </div>
-      <p>
-        Forecasts assume the player plays, using recent minutes and full career
-        history. Successful forecasts are saved to Forecast history. First-time
-        training may take a while.
-      </p>
+      {!!progress.total && (
+        <div className="board-progress">
+          <p role="status">
+            {generating ? "Generating" : "Batch finished"}: {progress.completed}{" "}
+            of {progress.total} players processed.
+          </p>
+          {generating && (
+            <progress
+              aria-label="Forecast generation"
+              value={progress.completed}
+              max={progress.total}
+            />
+          )}
+        </div>
+      )}
       {stub && (
         <p className="synthetic-notice">
-          Synthetic demo forecasts; these are not real NBA predictions.
+          Synthetic demo · Not real NBA forecasts
         </p>
       )}
       {errors.map((error, index) => (
@@ -215,132 +248,117 @@ export default function DailyForecasts() {
       )}
       {!!candidates.length && (
         <>
-          <div className="board-controls">
-            <label>
-              Search players
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </label>
-            <label>
-              Team
-              <select
-                value={team}
-                onChange={(event) => setTeam(event.target.value)}
-              >
-                <option value="all">All teams</option>
-                {teams.map((name) => (
-                  <option key={name}>{name}</option>
-                ))}
-              </select>
-            </label>
-            <button
-              className="today-button"
-              disabled={generating || !visible.length}
-              onClick={() =>
-                setSelected(
-                  (previous) =>
-                    new Set([...previous, ...visible.map((c) => c.key)]),
-                )
-              }
-            >
-              Select visible players
-            </button>
-            <button
-              className="today-button"
-              disabled={generating || !selected.size}
-              onClick={() => setSelected(new Set())}
-            >
-              Clear selection
-            </button>
-          </div>
-          <div className="board-matchups">
-            {games.map((game) => {
-              const players = visible.filter(
-                (c) => c.game.game_id === game.game_id,
-              );
-              if (!players.length) return null;
-              return (
-                <article className="panel board-matchup" key={game.game_id}>
-                  <h3>
-                    <TeamBadge team={game.away_team} small />
-                    {game.away_team} at{" "}
-                    <TeamBadge team={game.home_team} small />
-                    {game.home_team}
-                  </h3>
-                  <p>{tipoff(game)}</p>
-                  <div className="board-players">
-                    {players.map((candidate) => (
-                      <label key={candidate.key}>
-                        <input
-                          type="checkbox"
-                          checked={selected.has(candidate.key)}
-                          disabled={generating}
-                          onChange={(event) => {
-                            const checked = event.target.checked;
-                            setSelected((previous) => {
-                              const next = new Set(previous);
-                              if (checked) next.add(candidate.key);
-                              else next.delete(candidate.key);
-                              return next;
-                            });
-                          }}
-                        />
-                        <span>
-                          {candidate.player.PLAYER}
-                          <small>
-                            {candidate.player.team} ·{" "}
-                            {candidate.player.POSITION || "Player"}
-                          </small>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-          {!visible.length && <p>No players match these filters.</p>}
-          <div className="tracking-actions board-generation">
-            <span>
-              {selected.size} selected · {Object.keys(results).length} forecasts
-              ready
-            </span>
-            <button
-              className="today-button"
-              disabled={loading || generating || !pending.length}
-              onClick={() => void generate()}
-            >
-              Generate selected forecasts ({pending.length})
-            </button>
-            {generating && (
-              <button
-                className="today-button"
-                onClick={() => {
-                  stop.current = true;
-                }}
-              >
-                Stop after current player
-              </button>
-            )}
+          <div className="board-player-picker">
+            <div className="board-picker-heading">
+              <h2>
+                Players <span>{games.length} matchups</span>
+              </h2>
+              <div className="board-selection-tools">
+                <button
+                  disabled={generating || !visible.length}
+                  onClick={() =>
+                    setSelected(
+                      (previous) =>
+                        new Set([...previous, ...visible.map((c) => c.key)]),
+                    )
+                  }
+                >
+                  Select visible players
+                </button>
+                <button
+                  disabled={generating || !selected.size}
+                  onClick={() => setSelected(new Set())}
+                >
+                  Clear selection
+                </button>
+              </div>
+            </div>
+            <div className="board-controls board-filters">
+              <label className="board-search">
+                <Search size={16} aria-hidden="true" />
+                <input
+                  aria-label="Search players"
+                  placeholder="Search players…"
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+              </label>
+              <label>
+                <select
+                  aria-label="Team"
+                  value={team}
+                  onChange={(event) => setTeam(event.target.value)}
+                >
+                  <option value="all">All teams</option>
+                  {teams.map((name) => (
+                    <option key={name}>{name}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="board-matchups">
+              {games.map((game) => {
+                const players = visible.filter(
+                  (c) => c.game.game_id === game.game_id,
+                );
+                if (!players.length) return null;
+                return (
+                  <details className="board-matchup" key={game.game_id} open>
+                    <summary>
+                      <span className="board-matchup-name">
+                        <TeamBadge team={game.away_team} small />
+                        {game.away_team} at{" "}
+                        <TeamBadge team={game.home_team} small />
+                        {game.home_team}
+                      </span>
+                      <span className="board-matchup-time">{tipoff(game)}</span>
+                    </summary>
+                    <div className="board-players">
+                      {players.map((candidate) => (
+                        <label key={candidate.key}>
+                          <input
+                            type="checkbox"
+                            checked={selected.has(candidate.key)}
+                            disabled={generating}
+                            onChange={(event) => {
+                              const checked = event.target.checked;
+                              setSelected((previous) => {
+                                const next = new Set(previous);
+                                if (checked) next.add(candidate.key);
+                                else next.delete(candidate.key);
+                                return next;
+                              });
+                            }}
+                          />
+                          <span>
+                            {candidate.player.PLAYER}
+                            <small>
+                              {candidate.player.team} ·{" "}
+                              {candidate.player.POSITION || "Player"}
+                            </small>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </details>
+                );
+              })}
+            </div>
+            {!visible.length && <p>No players match these filters.</p>}
           </div>
         </>
-      )}
-      {!!progress.total && (
-        <p role="status">
-          {generating ? "Generating" : "Batch finished"}: {progress.completed}{" "}
-          of {progress.total} players processed.
-        </p>
       )}
       {(Object.keys(results).length > 0 ||
         Object.keys(failures).length > 0) && (
         <>
-          <div className="board-controls">
+          <div className="board-results-heading board-controls">
+            <h2>
+              Forecasts <span>{Object.keys(results).length} ready</span>
+            </h2>
             <label>
-              Sort forecasts
               <select
+                aria-label="Sort forecasts"
                 value={sort}
                 onChange={(event) =>
                   setSort(event.target.value as Stat | "player")
@@ -357,14 +375,24 @@ export default function DailyForecasts() {
           </div>
           <div className="table-scroll">
             <table className="tracking-table">
-              <caption>Daily player forecasts · {date} UTC</caption>
+              <caption className="board-table-caption">
+                Daily player forecasts · {date} UTC
+              </caption>
               <thead>
                 <tr>
                   <th scope="col">Player / matchup</th>
                   <th scope="col">Minutes</th>
                   {STATS.map((stat) => (
                     <th scope="col" key={stat}>
-                      {LABELS[stat]}
+                      {
+                        {
+                          points: "PTS",
+                          rebounds: "REB",
+                          assists: "AST",
+                          steals: "STL",
+                          blocks: "BLK",
+                        }[stat]
+                      }
                     </th>
                   ))}
                   <th scope="col">Details</th>
@@ -434,6 +462,15 @@ export default function DailyForecasts() {
           {!rows.length && <p>No generated forecasts match these filters.</p>}
         </>
       )}
+      <details className="board-help">
+        <summary>About these forecasts</summary>
+        <p>
+          Forecasts assume the player plays, using recent minutes and full
+          career history. Ranges are approximate 80% ranges. Successful
+          forecasts are saved to Forecast history. First-time training may take
+          a while.
+        </p>
+      </details>
     </section>
   );
 }
