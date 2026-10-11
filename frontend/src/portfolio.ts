@@ -277,8 +277,6 @@ export async function replayRequest<T>(
     signal?.throwIfAborted();
     return result;
   }
-  if (url.pathname === "/player-research")
-    throw new Error("Live news is not part of the historical replay.");
   const input = body as PredictionInput | undefined;
   const prepared = input && data.predictions[input.player_id];
   if (!input || !prepared)

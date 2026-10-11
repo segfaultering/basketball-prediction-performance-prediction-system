@@ -26,14 +26,12 @@ def public_app(tmp_path):
     )
 
 
-def test_public_history_and_paid_research_are_not_exposed(public_app):
-    body = {"player_id": "201939", "game_id": "game"}
+def test_public_history_and_live_backtests_are_not_exposed(public_app):
     with TestClient(public_app) as client:
         assert client.get("/health").status_code == 200
         assert client.get("/ready").json()["status"] == "ready"
         assert client.get("/forecasts").status_code == 403
         assert client.post("/forecasts/refresh").status_code == 403
-        assert client.post("/player-research", json=body).status_code == 403
         assert (
             client.post("/backtests", json={"player_id": "201939"}).status_code == 403
         )

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ForecastTracking from "./ForecastTracking";
 import DailyForecasts from "./DailyForecasts";
-import PlayerResearch from "./PlayerResearch";
 import MinutesExplorer from "./MinutesExplorer";
 import ThemeToggle from "./ThemeToggle";
 import TeamBadge from "./TeamBadge";
@@ -843,16 +842,6 @@ function Dashboard({
                     </button>
                   )}
                 </div>
-                {mode === "server" &&
-                  view === "predictions" &&
-                  player &&
-                  game && (
-                    <PlayerResearch
-                      key={`${gameId}:${playerId}`}
-                      playerId={playerId}
-                      gameId={gameId}
-                    />
-                  )}
                 {predictionError && (
                   <ErrorNotice message={predictionError} retry={predict} />
                 )}

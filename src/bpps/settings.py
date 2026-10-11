@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -24,9 +24,6 @@ class Settings(BaseSettings):
     public_demo: Literal[0, 1] = 0
     cors_origins: list[str] = Field(default_factory=list)
     model_backend: str = "ridge"
-    gemini_api_key: SecretStr | None = None
-    gemini_model: str = Field(default="gemini-3.1-flash-lite", min_length=1)
-    research_timeout_seconds: int = Field(default=60, ge=5, le=120)
 
     @field_validator("stub_mode", "debug", "public_demo", mode="before")
     @classmethod

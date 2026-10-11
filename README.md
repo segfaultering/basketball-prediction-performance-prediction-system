@@ -97,10 +97,10 @@ PUBLIC_DEMO=1 STUB_MODE=0 DEBUG=0 CORS_ORIGINS='["http://localhost:4173","http:/
 
 The public configuration allows one active prediction and ten prediction
 attempts per minute across the single API process. It rejects additional work
-with retryable 503/429 responses. Shared forecast history, live backtests, and
-Gemini research are disabled in this deployment; the prepared replay demonstrates
-evaluation without public requests starting full-career backtests or paid
-research. `PUBLIC_DEMO=1` refuses `DEBUG=1` and `STUB_MODE=1` at startup.
+with retryable 503/429 responses. Shared forecast history and live backtests
+are disabled in this deployment; the prepared replay demonstrates
+evaluation without public requests starting full-career backtests.
+`PUBLIC_DEMO=1` refuses `DEBUG=1` and `STUB_MODE=1` at startup.
 
 ### Free-tier deployment
 
@@ -114,8 +114,7 @@ Use a static frontend on **Cloudflare Pages** and the Python backend on **Render
    to `npm ci && npm run build`, and the output directory to `dist`. Set
    `VITE_PORTFOLIO_DEMO=1`, `VITE_BASE_PATH=/`, and
    `VITE_API_BASE_URL=https://YOUR-API.onrender.com` before building. These values
-   are public configuration, not secrets; never put a Gemini key in a `VITE_*`
-   variable. See [frontend/.env.example](frontend/.env.example).
+   are public configuration, not secrets; never put secrets in a `VITE_*` variable. See [frontend/.env.example](frontend/.env.example).
 3. If the generated Pages origin differs, update Render's CORS allowlist. It
    accepts explicit HTTPS origins or local development origins, without trailing
    slashes. Replay remains available even with an incorrect/unavailable API URL.
@@ -489,37 +488,3 @@ npm run test:e2e
 ```
 
 The browser tests start a synthetic API on port 8012 and exercise the built interface at desktop and mobile sizes. Run them after building. Python checks remain `uv run pyrefly check`, `uv run ruff check src tests`, `uv run ruff format --check src tests`, and `uv run pytest`.
-
-## Gemini player research
-
-Select a player and click **Research player** to check recent availability,
-injuries, rest, minutes restrictions, and team news alongside the forecast.
-Research does not change the numerical prediction or run automatically.
-
-In the project-root `.env`, set `GEMINI_API_KEY` to your Gemini API key and
-`STUB_MODE=0`, then restart the API. Keep the key server-side; do not put it in
-frontend variables or commit it. `GEMINI_MODEL` defaults to `gemini-3.1-flash-lite`;
-use a model that supports Google Search grounding and structured output.
-`RESEARCH_TIMEOUT_SECONDS` defaults to 60. Missing keys and quota/network errors
-appear in the research panel without preventing predictions.
-
-The LangGraph workflow resolves the player/game from the NBA roster, asks Gemini
-to search recent public reports with Google Search grounding, summarizes only
-cited passages, and validates citation IDs and report dates. Links and Google
-Search suggestions accompany results. Suggestions render in a sandboxed frame;
-web text is treated as evidence, not executable instructions.
-No custom site scraper or second search API key is required.
-
-The panel shows the latest **reported** status, its report date, and when research
-was checked. Missing, conflicting, undated, or stale status evidence remains
-unconfirmed; no report does not mean a player is available. Reports may change
-before tipoff. Successful research is cached in memory for five minutes (up to
-128 player/game contexts); research is not saved to forecast history.
-A search plus structured summary can use two Gemini calls and search-grounding
-quota. Clicking again within five minutes reuses the cached result.
-`STUB_MODE=1` returns an explicitly synthetic unknown status and never calls Gemini,
-even when a key is configured.
-
-References: [Gemini search grounding](https://ai.google.dev/gemini-api/docs/google-search/),
-[Gemini structured output](https://ai.google.dev/gemini-api/docs/structured-output),
-[LangGraph](https://docs.langchain.com/oss/python/langgraph/graph-api).

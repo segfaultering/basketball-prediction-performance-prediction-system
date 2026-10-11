@@ -13,16 +13,8 @@ from typing import Annotated
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from starlette.concurrency import run_in_threadpool
 
 from .providers import create_provider
-from .research import (
-    PlayerContext,
-    PlayerResearch,
-    ResearchReport,
-    ResearchRequest,
-    ResearchUnavailable,
-)
 from .service import (
     HistoryRequest,
     PredictionRequest,
@@ -54,7 +46,6 @@ def create_app(settings: Settings | None = None, include_ui: bool = True):
     application.state.settings = config
     application.state.service = service
     application.state.forecasts = forecasts
-    application.state.research = PlayerResearch(config)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=config.cors_origins,
@@ -118,26 +109,6 @@ def create_app(settings: Settings | None = None, include_ui: bool = True):
             status_code=503,
             content={"detail": "Forecast history storage is unavailable; retry later."},
         )
-
-    @application.exception_handler(ResearchUnavailable)
-    def research_unavailable(request: Request, exc: ResearchUnavailable):
-        return JSONResponse(status_code=503, content={"detail": str(exc)})
-
-    @application.post("/player-research", response_model=ResearchReport)
-    async def player_research(body: ResearchRequest):
-        require_private_application()
-        game, game_date, home, name = await run_in_threadpool(
-            service.player_context, body.player_id, body.game_id
-        )
-        context = PlayerContext(
-            player_id=body.player_id,
-            player_name=name,
-            game_id=body.game_id,
-            game_date=game_date,
-            team=game["home_team" if home else "away_team"],
-            opponent=game["away_team" if home else "home_team"],
-        )
-        return await application.state.research.research(context)
 
     @application.get("/health")
     def health():

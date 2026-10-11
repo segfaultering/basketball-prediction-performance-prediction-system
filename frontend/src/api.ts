@@ -263,31 +263,3 @@ export function tipoff(game: Game) {
     ? "Time to be confirmed"
     : `${new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit", timeZone: "UTC" }).format(date)} UTC`;
 }
-
-export interface PlayerResearchReport {
-  availability:
-    "available" | "probable" | "questionable" | "doubtful" | "out" | "unknown";
-  summary: string;
-  status_as_of: string | null;
-  status_source_ids: number[];
-  updates: {
-    text: string;
-    reported_date: string | null;
-    source_ids: number[];
-  }[];
-  context: {
-    player_id: string;
-    player_name: string;
-    game_id: string;
-    game_date: string;
-    team: string;
-    opponent: string;
-  };
-  checked_at: string;
-  expires_at: string;
-  sources: { id: number; title: string; url: string }[];
-  search_suggestions_html: string;
-  stub_mode: boolean;
-  cached: boolean;
-  model: string;
-}
