@@ -23,7 +23,13 @@ from .research import (
     ResearchRequest,
     ResearchUnavailable,
 )
-from .service import HistoryRequest, PredictionRequest, PredictionService, Season
+from .service import (
+    HistoryRequest,
+    PredictionRequest,
+    PredictionService,
+    ScenarioRequest,
+    Season,
+)
 from .settings import Settings
 from .tracking import ForecastStore
 
@@ -164,6 +170,11 @@ def create_app(settings: Settings | None = None, include_ui: bool = True):
     def evaluate(body: HistoryRequest):
         require_private_application()
         return service.evaluate(body)
+
+    @application.post("/predictions/scenarios")
+    def minute_scenarios(body: ScenarioRequest):
+        with prediction_slot():
+            return service.minute_scenarios(body)
 
     @application.get("/forecasts")
     def forecast_history(

@@ -74,6 +74,22 @@ it("rejects incompatible matchups, history overrides, and fractional minutes", a
   ).rejects.toThrow("fixed history");
 });
 
+it("loads every minutes scenario without creating visitor history", async () => {
+  const result = await request<import("./api").MinuteScenarios>(
+    "/predictions/scenarios",
+    undefined,
+    { player_id: "201939", game_id: "0022400919" },
+  );
+  expect(result.scenarios.map((s) => s.projected_minutes)).toEqual(
+    Array.from({ length: 49 }, (_, m) => m),
+  );
+  expect(result.scenarios[0].stats.points.prediction).toBe(0);
+  expect(result.scenarios[48].stats).toEqual(
+    snapshot.predictions["201939"].scenarios["48"].stats,
+  );
+  expect((await request<ForecastHistory>("/forecasts")).total).toBe(0);
+});
+
 it("does not save an aborted replay request", async () => {
   const controller = new AbortController();
   controller.abort();

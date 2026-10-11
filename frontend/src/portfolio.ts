@@ -289,10 +289,24 @@ export async function replayRequest<T>(
     );
   if (url.pathname === "/backtests")
     return structuredClone(data.backtests[input.player_id]) as T;
-  if (url.pathname !== "/predictions")
+  if (
+    url.pathname !== "/predictions" &&
+    url.pathname !== "/predictions/scenarios"
+  )
     throw new Error("This action is not available in NBA replay.");
   if (input.game_id !== prepared.default.game_id)
     throw new Error("Player is not in this replay matchup.");
+  if (url.pathname === "/predictions/scenarios") {
+    return structuredClone({
+      reference: {
+        projected_minutes: prepared.default.projected_minutes,
+        stats: prepared.default.stats,
+      },
+      scenarios: Object.values(prepared.scenarios).sort(
+        (a, b) => a.projected_minutes - b.projected_minutes,
+      ),
+    }) as T;
+  }
   const prediction = structuredClone(prepared.default);
   if (input.minutes !== undefined) {
     const scenario = prepared.scenarios[String(input.minutes)];

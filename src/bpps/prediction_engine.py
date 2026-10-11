@@ -298,6 +298,44 @@ class PredictionEngine:
             history, player_id, game_date, opponent, home, minutes, context, artifact
         )
 
+    def minute_scenarios(
+        self,
+        logs: list[GameLog],
+        player_id: str,
+        game_date: date,
+        opponent: str,
+        home: bool,
+    ) -> dict[str, Any]:
+        """Reuse one fitted artifact and context for all hypothetical minutes."""
+        history = [
+            g
+            for g in validate_logs(logs, player_id)
+            if g.minutes > 0 and g.date < game_date
+        ]
+        context = make_context(history, game_date, home)
+        artifact = self.train(history, player_id, game_date)
+
+        def scenario(minutes: float | None):
+            forecast = self._forecast(
+                history,
+                player_id,
+                game_date,
+                opponent,
+                home,
+                minutes,
+                context,
+                artifact,
+            )
+            return {
+                "projected_minutes": forecast["projected_minutes"],
+                "stats": forecast["stats"],
+            }
+
+        return {
+            "reference": scenario(None),
+            "scenarios": [scenario(minutes) for minutes in range(49)],
+        }
+
     def _forecast(
         self,
         history: list[GameLog],

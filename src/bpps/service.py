@@ -24,8 +24,11 @@ class HistoryRequest(BaseModel):
     season_type: SeasonType = "Regular Season"
 
 
-class PredictionRequest(HistoryRequest):
+class ScenarioRequest(HistoryRequest):
     game_id: str = Field(min_length=1, max_length=40)
+
+
+class PredictionRequest(ScenarioRequest):
     minutes: float | None = Field(default=None, ge=0, le=48, allow_inf_nan=False)
 
 
@@ -167,6 +170,20 @@ class PredictionService:
                 raise HTTPException(409, str(exc)) from exc
             result.update(self.forecast_store.save(body.model_dump(), result))
         return result
+
+    def minute_scenarios(self, body: ScenarioRequest):
+        game, game_date, home, _ = self.player_context(body.player_id, body.game_id)
+        logs = self.history(body, game_date)
+        try:
+            return self.engine(body.season_type).minute_scenarios(
+                logs,
+                body.player_id,
+                game_date,
+                game["away_team" if home else "home_team"],
+                home,
+            )
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
 
     def evaluate(self, body: HistoryRequest):
         logs = self.history(body)

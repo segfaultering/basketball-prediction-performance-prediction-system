@@ -84,6 +84,30 @@ def test_away_player_and_minutes(client):
     assert result.json()["projected_minutes"] == 15
 
 
+def test_minute_scenarios_match_forecasts_without_archiving(client):
+    response = client.post("/predictions/scenarios", json=payload())
+    assert response.status_code == 200
+    result = response.json()
+    assert [s["projected_minutes"] for s in result["scenarios"]] == list(range(49))
+    assert client.get("/forecasts").json()["total"] == 0
+    for minutes in (0, 24, 48):
+        prediction = client.post("/predictions", json=payload(minutes=minutes)).json()
+        assert result["scenarios"][minutes]["stats"] == prediction["stats"]
+    default = client.post("/predictions", json=payload()).json()
+    assert result["reference"]["projected_minutes"] == default["projected_minutes"]
+    assert result["reference"]["stats"] == default["stats"]
+    assert (
+        client.post("/predictions/scenarios", json=payload(minutes=24)).status_code
+        == 422
+    )
+    assert (
+        client.post(
+            "/predictions/scenarios", json=payload(player_id="not-in-roster")
+        ).status_code
+        == 422
+    )
+
+
 def test_automatic_career_training_and_baseline_response(client):
     request = {"player_id": "demo-player", "game_id": "demo-game"}
     response = client.post("/predictions", json=request)

@@ -95,6 +95,12 @@ export interface PredictionInput {
   seasons?: string[];
 }
 
+export type MinuteScenario = Pick<Prediction, "projected_minutes" | "stats">;
+export interface MinuteScenarios {
+  reference: MinuteScenario;
+  scenarios: MinuteScenario[];
+}
+
 export interface TrackedForecast {
   id: string;
   created_at: string;

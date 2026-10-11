@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ForecastTracking from "./ForecastTracking";
 import DailyForecasts from "./DailyForecasts";
 import PlayerResearch from "./PlayerResearch";
+import MinutesExplorer from "./MinutesExplorer";
 import ThemeToggle from "./ThemeToggle";
 import TeamBadge from "./TeamBadge";
 import Sidebar from "./Sidebar";
@@ -942,6 +943,17 @@ function Dashboard({
                         Model insights <ArrowUpRight size={13} />
                       </button>
                     </div>
+                    {result && (
+                      <MinutesExplorer
+                        key={`${result.player_id}:${result.game_id}:${result.projected_minutes}`}
+                        current={result}
+                        input={{
+                          player_id: playerId,
+                          game_id: gameId,
+                          seasons: parseSeasons(seasons),
+                        }}
+                      />
+                    )}
                   </>
                 ) : (
                   <div className="insights-panel panel">

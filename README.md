@@ -13,6 +13,15 @@ uv run bpps --help
 
 ## Portfolio demo
 
+After generating a prediction, select **Explore minutes** to compare playing-time
+scenarios from 0–48 minutes. Choose a statistic for the chart and drag the slider
+to compare all five stats with the current forecast. The dashed marker shows the
+history-based minutes estimate; shading shows the existing heuristic, uncalibrated
+80% range. Exploration does not save forecasts. Use the Expected minutes override
+and generate a prediction to save a scenario. Replay works offline; live and local
+API modes use `POST /predictions/scenarios`, sharing the public prediction budget
+and fitting one model artifact for the complete set of scenarios.
+
 The hosted portfolio build opens an **NBA replay** of March 8, 2025. It includes
 six featured players across DET–GSW, IND–ATL, and ORL–MIL. The replay uses real
 NBA game logs, not synthetic fixtures. Its date is the NBA boxscore game date;

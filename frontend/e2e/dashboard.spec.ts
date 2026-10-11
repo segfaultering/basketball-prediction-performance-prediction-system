@@ -108,6 +108,28 @@ test("predicts with real synthetic API and handles selection changes", async ({
   ).not.toContainText("—");
   await expect(page.locator(".synthetic-notice")).toBeVisible();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Explore minutes" }).click();
+  const scenarioMinutes = page.getByRole("slider", {
+    name: /Scenario minutes/,
+  });
+  await scenarioMinutes.fill("0");
+  await expect(
+    page.getByRole("img", { name: /Points forecast by minutes/ }),
+  ).toHaveAttribute("aria-label", /At 0 minutes: 0.0/);
+  await scenarioMinutes.fill("48");
+  await page.getByLabel("Chart statistic").selectOption("assists");
+  await expect(
+    page.getByRole("img", { name: /Assists forecast by minutes/ }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: info.outputPath("minutes-explorer.png"),
+    fullPage: true,
+  });
   await navigate(page, "Forecast history");
   await expect(page.locator(".tracking-record").first()).toBeVisible();
   await page

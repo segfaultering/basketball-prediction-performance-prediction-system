@@ -63,6 +63,7 @@ const game = {
   away_team_id: "bos",
 };
 let predictionHandler: (init?: RequestInit) => Promise<Response>;
+let scenarioHandler: (init?: RequestInit) => Promise<Response>;
 const json = (data: unknown, status = 200) =>
   Promise.resolve(
     new Response(JSON.stringify(data), {
@@ -85,6 +86,22 @@ beforeEach(() => {
     },
   });
   predictionHandler = () => json(forecast);
+  scenarioHandler = () =>
+    json({
+      reference: forecast,
+      scenarios: Array.from({ length: 49 }, (_, minutes) => ({
+        projected_minutes: minutes,
+        stats: Object.fromEntries(
+          STATS.map((s) => [
+            s,
+            {
+              prediction: minutes,
+              approximate_80pct_range: [minutes * 0.5, minutes * 1.5],
+            },
+          ]),
+        ),
+      })),
+    });
   vi.stubGlobal(
     "fetch",
     vi.fn((path: string, init?: RequestInit) => {
@@ -99,6 +116,7 @@ beforeEach(() => {
           players: [{ PLAYER_ID: "2", PLAYER: "Sam Player", POSITION: "F" }],
         });
       if (path === "/predictions") return predictionHandler(init);
+      if (path === "/predictions/scenarios") return scenarioHandler(init);
       return json({ detail: "Unexpected request" }, 500);
     }),
   );
@@ -122,6 +140,80 @@ async function selectPlayer() {
 }
 
 describe("prediction workflow", () => {
+  it("explores minutes locally without saving or changing the current forecast", async () => {
+    const user = await selectPlayer();
+    await user.click(
+      screen.getByRole("button", { name: /Generate prediction/ }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Explore minutes" }),
+    );
+    const slider = await screen.findByRole("slider", {
+      name: /Scenario minutes/,
+    });
+    fireEvent.change(slider, { target: { value: "0" } });
+    expect(
+      screen
+        .getByRole("img", { name: /Points forecast by minutes/ })
+        .getAttribute("aria-label"),
+    ).toContain("At 0 minutes: 0.0");
+    fireEvent.change(slider, { target: { value: "48" } });
+    await user.selectOptions(
+      screen.getByLabelText("Chart statistic"),
+      "assists",
+    );
+    expect(
+      screen
+        .getByRole("img", { name: /Assists forecast by minutes/ })
+        .getAttribute("aria-label"),
+    ).toContain("At 48 minutes: 48.0");
+    expect(screen.getByText("Saved")).toBeTruthy();
+    expect(
+      vi.mocked(fetch).mock.calls.filter(([path]) => path === "/predictions"),
+    ).toHaveLength(1);
+    expect(
+      vi
+        .mocked(fetch)
+        .mock.calls.filter(([path]) => path === "/predictions/scenarios"),
+    ).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Close explorer" }));
+    await user.click(screen.getByRole("button", { name: "Explore minutes" }));
+    expect(
+      vi
+        .mocked(fetch)
+        .mock.calls.filter(([path]) => path === "/predictions/scenarios"),
+    ).toHaveLength(1);
+  });
+
+  it("retries failed scenarios and aborts exploration when the player changes", async () => {
+    const user = await selectPlayer();
+    await user.click(
+      screen.getByRole("button", { name: /Generate prediction/ }),
+    );
+    scenarioHandler = () => json({ detail: "Scenarios unavailable" }, 503);
+    await user.click(
+      await screen.findByRole("button", { name: "Explore minutes" }),
+    );
+    expect(await screen.findByText("Scenarios unavailable")).toBeTruthy();
+    let signal: AbortSignal | null | undefined;
+    let resolve: (response: Response) => void = () => {};
+    scenarioHandler = (init) => {
+      signal = init?.signal;
+      return new Promise((res) => {
+        resolve = res;
+      });
+    };
+    await user.click(screen.getByRole("button", { name: "Retry scenarios" }));
+    await user.click(screen.getByRole("button", { name: /Sam Player/ }));
+    expect(signal?.aborted).toBe(true);
+    await act(async () => {
+      resolve(await json({ reference: forecast, scenarios: [] }));
+    });
+    expect(
+      screen.queryByRole("slider", { name: /Scenario minutes/ }),
+    ).toBeNull();
+  });
+
   it("requests automatic career history and displays baseline plus validation", async () => {
     const user = await selectPlayer();
     await user.click(

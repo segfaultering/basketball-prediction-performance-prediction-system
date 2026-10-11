@@ -71,6 +71,8 @@ def test_public_prediction_budget_and_explicit_cors(public_app, monkeypatch):
         limited = client.post("/predictions", json=body)
         assert limited.status_code == 429
         assert limited.headers["retry-after"] == "60"
+        # Exploration shares the same budget as saved predictions.
+        assert client.post("/predictions/scenarios", json=body).status_code == 429
 
 
 def test_busy_prediction_rejects_without_queueing(public_app, monkeypatch):
@@ -91,6 +93,7 @@ def test_busy_prediction_rejects_without_queueing(public_app, monkeypatch):
         try:
             assert entered.wait(5)
             assert client.post("/predictions", json=body).status_code == 503
+            assert client.post("/predictions/scenarios", json=body).status_code == 503
         finally:
             finish.set()
         assert pending.result().status_code == 200

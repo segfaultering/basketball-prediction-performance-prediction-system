@@ -26,6 +26,24 @@ test("the portfolio replay works with no API and keeps historical results labele
     .getByRole("button", { name: "Generate prediction", exact: true })
     .click();
   await expect(page.getByText("Saved replay", { exact: true })).toBeVisible();
+  await page
+    .getByRole("button", { name: "Explore minutes", exact: true })
+    .click();
+  const minutes = page.getByRole("slider", { name: /Scenario minutes/ });
+  await minutes.fill("0");
+  await expect(
+    page.getByRole("img", { name: /Points forecast by minutes/ }),
+  ).toHaveAttribute("aria-label", /At 0 minutes: 0.0/);
+  await minutes.fill("48");
+  await page.getByLabel("Chart statistic").selectOption("rebounds");
+  await expect(
+    page.getByRole("img", { name: /Rebounds forecast by minutes/ }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
   await navigate(page, "Model insights");
   await page.getByRole("button", { name: "Run backtest" }).click();
   await expect(

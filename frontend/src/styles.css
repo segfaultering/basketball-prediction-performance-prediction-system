@@ -2369,3 +2369,132 @@ table {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+/* Minutes explorer keeps the default forecast compact and shares theme colors. */
+.minutes-explorer {
+  margin-top: 20px;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+.minutes-explorer-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.minutes-explorer h3 {
+  font-size: 15px;
+  margin: 0 0 5px;
+}
+.minutes-explorer p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.minutes-explorer-heading p {
+  margin: 0;
+}
+.minutes-explorer button {
+  border: 1px solid var(--accent-border);
+  background: var(--accent-surface);
+  color: var(--accent-text);
+  border-radius: 8px;
+  padding: 9px 12px;
+  white-space: nowrap;
+}
+.minutes-explorer-body {
+  margin-top: 18px;
+}
+.minutes-explorer-controls {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 16px;
+}
+.minutes-explorer-controls label {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.minutes-explorer-controls select {
+  width: 100%;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+}
+.minutes-explorer-controls input {
+  width: 100%;
+  accent-color: var(--accent-text);
+}
+.minutes-explorer svg {
+  width: 100%;
+  display: block;
+  margin-top: 14px;
+  overflow: visible;
+}
+.minutes-explorer svg text {
+  fill: var(--muted);
+  font-size: 11px;
+}
+.scenario-grid line {
+  stroke: var(--line);
+}
+.scenario-band {
+  fill: var(--accent-text);
+  opacity: 0.12;
+}
+.scenario-curve {
+  fill: none;
+  stroke: var(--accent-text);
+  stroke-width: 2.5;
+}
+.scenario-estimate {
+  stroke: var(--muted);
+  stroke-dasharray: 5 4;
+}
+.scenario-selected {
+  stroke: var(--accent-text);
+  opacity: 0.5;
+}
+.scenario-dot {
+  fill: var(--accent-text);
+}
+.scenario-current {
+  fill: var(--surface);
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+.scenario-chart-caption {
+  margin: 8px 0 14px;
+}
+.scenario-comparison-labels,
+.scenario-comparison-row {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr 0.8fr;
+  gap: 8px;
+  padding: 9px 0;
+  font-size: 13px;
+}
+.scenario-comparison-labels {
+  color: var(--muted);
+  font-size: 11px;
+}
+.scenario-comparison-row {
+  border-top: 1px solid var(--line);
+}
+.scenario-comparison-row strong {
+  color: var(--accent-text);
+}
+@media (max-width: 480px) {
+  .minutes-explorer-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .minutes-explorer-controls {
+    grid-template-columns: 1fr;
+  }
+  .minutes-explorer svg text {
+    font-size: 16px;
+  }
+}

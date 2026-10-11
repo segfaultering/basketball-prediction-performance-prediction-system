@@ -3,6 +3,7 @@
 import json
 from dataclasses import replace
 from datetime import date, timedelta
+from unittest.mock import patch
 
 import pytest
 
@@ -31,6 +32,17 @@ def logs():
         )
         for i in range(90)
     ]
+
+
+def test_minutes_explorer_trains_once_and_uses_the_prediction_engine(logs, tmp_path):
+    engine = PredictionEngine(tmp_path, "csv")
+    target = date(2024, 5, 1)
+    with patch.object(engine, "train", wraps=engine.train) as train:
+        result = engine.minute_scenarios(logs, "1", target, "BOS", True)
+        assert train.call_count == 1
+    for minutes in (0, 17, 48):
+        expected = engine.prediction(logs, "1", target, "BOS", True, minutes)
+        assert result["scenarios"][minutes]["stats"] == expected["stats"]
 
 
 def test_ridge_learns_context_and_gates_each_stat(logs, tmp_path):
