@@ -79,10 +79,9 @@ test("switches themes and preserves the selection across reloads", async ({
   await navigate(page, "Forecast history");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await navigate(page, "How it works");
-  await expect(page.getByRole("dialog")).toHaveCSS(
-    "background-color",
-    "rgb(27, 37, 32)",
-  );
+  await expect(
+    page.getByRole("dialog", { name: "How forecasts work", exact: true }),
+  ).toHaveCSS("background-color", "rgb(27, 37, 32)");
   await page.getByRole("button", { name: "Close explanation" }).click();
   await page.getByRole("button", { name: "Switch to light mode" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
@@ -108,7 +107,7 @@ test("predicts with real synthetic API and handles selection changes", async ({
     page.locator(".stat-card").first().locator(".stat-value"),
   ).not.toContainText("—");
   await expect(page.locator(".synthetic-notice")).toBeVisible();
-  await expect(page.getByText("Saved")).toBeVisible();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await navigate(page, "Forecast history");
   await expect(page.locator(".tracking-record").first()).toBeVisible();
   await page
@@ -142,7 +141,7 @@ test("predicts with real synthetic API and handles selection changes", async ({
   await navigate(page, "Player predictions");
   await page.locator(".player-option").first().click();
   await page.getByRole("button", { name: "Generate prediction" }).click();
-  await expect(page.getByText("Saved")).toBeVisible({
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible({
     timeout: 45_000,
   });
   await page.screenshot({
@@ -159,10 +158,21 @@ test("predicts with real synthetic API and handles selection changes", async ({
   await expect(
     page.getByRole("columnheader", { name: "Baseline MAE", exact: true }),
   ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth <=
+        document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
   await navigate(page, "How it works");
-  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: "How forecasts work", exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Close explanation" }).click();
-  await expect(page.getByRole("dialog")).not.toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: "How forecasts work", exact: true }),
+  ).not.toBeVisible();
   await navigate(page, "Player predictions");
   await page.getByRole("button", { name: "Next day" }).click();
   await expect(page.getByText(/No scheduled games on/)).toBeVisible();

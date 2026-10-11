@@ -14,6 +14,7 @@ export const LABELS: Record<Stat, string> = {
   blocks: "Blocks",
 };
 export interface Game {
+  replay_mode?: boolean;
   game_id: string;
   date: string;
   status: number;
@@ -36,6 +37,7 @@ export interface ModelStat {
   baseline: { window: string; kind: string; value: number };
 }
 export interface Prediction {
+  replay_mode?: boolean;
   forecast_id?: string;
   saved_at?: string;
   player_name?: string;
@@ -71,6 +73,8 @@ export interface Prediction {
   };
 }
 export interface Backtest {
+  replay_mode?: boolean;
+  evaluation_scope?: string;
   evaluated_games: number;
   stub_mode: boolean;
   stats: Record<
@@ -105,10 +109,16 @@ export interface TrackedForecast {
     season_type: string;
   };
   prediction: Prediction;
-  outcome: { minutes: number; stats: Record<Stat, number> } | null;
+  outcome: {
+    game_id?: string;
+    date?: string;
+    minutes: number;
+    stats: Record<Stat, number>;
+  } | null;
   errors: Record<Stat, number> | null;
 }
 export interface ForecastHistory {
+  replay_mode?: boolean;
   stub_mode: boolean;
   total: number;
   forecasts: TrackedForecast[];
@@ -133,21 +143,58 @@ export interface ForecastRefresh {
   errors: { player_id: string; season: string; detail: string }[];
 }
 
+export type DataMode = "server" | "replay" | "live";
+export const portfolioEnabled = import.meta.env.VITE_PORTFOLIO_DEMO === "1";
+let dataMode: DataMode = portfolioEnabled ? "replay" : "server";
+export const getDataMode = () => dataMode;
+export const setDataMode = (mode: DataMode) => {
+  dataMode = mode;
+};
+export const initialDate = () =>
+  dataMode === "replay" ? "2025-03-08" : utcToday();
+export const apiBase = (import.meta.env.VITE_API_BASE_URL || "").replace(
+  /\/$/,
+  "",
+);
+
 export async function request<T>(
   path: string,
   signal?: AbortSignal,
   body?: object,
 ): Promise<T> {
-  const response = await fetch(path, {
-    signal,
-    ...(body
-      ? {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        }
-      : {}),
-  });
+  const mode = dataMode;
+  if (mode === "replay") {
+    const { replayRequest } = await import("./portfolio");
+    return replayRequest<T>(path, signal, body);
+  }
+  if (mode === "live" && path.startsWith("/forecasts")) {
+    const { historyRequest } = await import("./portfolio");
+    return historyRequest<T>(mode, path);
+  }
+  const deadline = mode === "live" ? AbortSignal.timeout(90_000) : undefined;
+  let response: Response;
+  try {
+    response = await fetch(`${apiBase}${path}`, {
+      signal: deadline
+        ? signal
+          ? AbortSignal.any([signal, deadline])
+          : deadline
+        : signal,
+      ...(body
+        ? {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }
+        : {}),
+    });
+  } catch (error) {
+    if (mode === "live" && !signal?.aborted)
+      throw new Error(
+        "Live data could not be reached. The API may be waking up; retry or switch to NBA replay.",
+      );
+    throw error;
+  }
   if (!response.ok) {
     let detail: unknown;
     try {
@@ -163,7 +210,22 @@ export async function request<T>(
         : `Request failed (${response.status}). Please try again.`,
     );
   }
-  return response.json() as Promise<T>;
+  let result;
+  try {
+    result = await response.json();
+  } catch {
+    throw new Error(
+      mode === "live"
+        ? "The live API is not ready. Retry shortly or switch to NBA replay."
+        : "The API returned an invalid response. Please try again.",
+    );
+  }
+  signal?.throwIfAborted();
+  if (mode === "live" && path === "/predictions") {
+    const { saveVisitorForecast } = await import("./portfolio");
+    return saveVisitorForecast(mode, body as PredictionInput, result) as T;
+  }
+  return result as T;
 }
 export const utcToday = () => new Date().toISOString().slice(0, 10);
 export function seasonFor(date: string) {

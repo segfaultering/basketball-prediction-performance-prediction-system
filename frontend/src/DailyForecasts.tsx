@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { LABELS, STATS, request, seasonFor, tipoff, utcToday } from "./api";
+import {
+  LABELS,
+  STATS,
+  request,
+  seasonFor,
+  tipoff,
+  initialDate,
+  getDataMode,
+} from "./api";
 import type { Game, Player, Prediction, Stat } from "./api";
 import TeamBadge from "./TeamBadge";
 import { RefreshCw, Search, Sparkles } from "lucide-react";
@@ -15,7 +23,8 @@ const message = (error: unknown) =>
     : "Unable to retrieve data. Try again.";
 
 export default function DailyForecasts() {
-  const [date, setDate] = useState(utcToday);
+  const [date, setDate] = useState(initialDate);
+  const replay = getDataMode() === "replay";
   const [revision, setRevision] = useState(0);
   const [games, setGames] = useState<Game[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -171,12 +180,14 @@ export default function DailyForecasts() {
       <div className="board-toolbar">
         <div className="board-date-controls">
           <label className="date-picker">
-            <span className="board-date-label">UTC</span>
+            <span className="board-date-label">
+              {replay ? "REPLAY" : "UTC"}
+            </span>
             <input
-              aria-label="Forecast date (UTC)"
+              aria-label={replay ? "Replay date (NBA)" : "Forecast date (UTC)"}
               type="date"
               value={date}
-              disabled={generating}
+              disabled={generating || replay}
               onChange={(event) => {
                 if (event.target.value) setDate(event.target.value);
               }}
@@ -312,7 +323,9 @@ export default function DailyForecasts() {
                         <TeamBadge team={game.home_team} small />
                         {game.home_team}
                       </span>
-                      <span className="board-matchup-time">{tipoff(game)}</span>
+                      <span className="board-matchup-time">
+                        {game.replay_mode ? "Completed game" : tipoff(game)}
+                      </span>
                     </summary>
                     <div className="board-players">
                       {players.map((candidate) => (
@@ -376,7 +389,8 @@ export default function DailyForecasts() {
           <div className="table-scroll">
             <table className="tracking-table">
               <caption className="board-table-caption">
-                Daily player forecasts · {date} UTC
+                Daily player forecasts · {date}{" "}
+                {replay ? "NBA game date" : "UTC"}
               </caption>
               <thead>
                 <tr>
@@ -434,7 +448,12 @@ export default function DailyForecasts() {
                                 through: {prediction.model.trained_through}.
                               </p>
                               {prediction.saved_at && (
-                                <p>Saved: {prediction.saved_at}</p>
+                                <p>
+                                  {prediction.replay_mode
+                                    ? "Saved replay"
+                                    : "Saved"}
+                                  : {prediction.saved_at}
+                                </p>
                               )}
                               <ul>
                                 {prediction.warnings.map((warning, index) => (

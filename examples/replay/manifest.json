@@ -1,0 +1,424 @@
+{
+  "version": 1,
+  "date": "2025-03-08",
+  "date_basis": "NBA boxscore game date, not UTC tipoff date",
+  "source": "NBA PlayerGameLog responses previously downloaded through nba_api; replay rebuilt retrospectively",
+  "history_sha256": "29da9eaf42e80b475c0dec8b48fe9fa34ab578d8e765146f61abf0b125a564eb",
+  "players": [
+    {
+      "player_id": "201939",
+      "name": "Stephen Curry",
+      "position": "G",
+      "first_season": 2009,
+      "source_url": "https://www.nba.com/stats/player/201939/boxscores-traditional"
+    },
+    {
+      "player_id": "1630595",
+      "name": "Cade Cunningham",
+      "position": "G",
+      "first_season": 2021,
+      "source_url": "https://www.nba.com/stats/player/1630595/boxscores-traditional"
+    },
+    {
+      "player_id": "1626167",
+      "name": "Myles Turner",
+      "position": "C",
+      "first_season": 2015,
+      "source_url": "https://www.nba.com/stats/player/1626167/boxscores-traditional"
+    },
+    {
+      "player_id": "204456",
+      "name": "T.J. McConnell",
+      "position": "G",
+      "first_season": 2015,
+      "source_url": "https://www.nba.com/stats/player/204456/boxscores-traditional"
+    },
+    {
+      "player_id": "1630167",
+      "name": "Obi Toppin",
+      "position": "F",
+      "first_season": 2020,
+      "source_url": "https://www.nba.com/stats/player/1630167/boxscores-traditional"
+    },
+    {
+      "player_id": "1628371",
+      "name": "Jonathan Isaac",
+      "position": "F",
+      "first_season": 2017,
+      "source_url": "https://www.nba.com/stats/player/1628371/boxscores-traditional"
+    }
+  ],
+  "upstream_snapshots": [
+    {
+      "player_id": "201939",
+      "season": "2009-10",
+      "endpoint": "PlayerGameLog",
+      "sha256": "e11914b811f42a2d34347eec9745ac8dddf5bce213a46edfe3cb3a5db3576abc",
+      "retrieved_at": "2026-10-09T05:21:35.291976+00:00"
+    },
+    {
+      "player_id": "201939",
+      "season": "2010-11",
+      "endpoint": "PlayerGameLog",
+      "sha256": "10fcc37952f51af2f1d12fa6870b2b1a45ad37aa4b8ee588d3f8554c31af8bdd",
+      "retrieved_at": "2026-10-09T05:21:35.835621+00:00"
+    },
+    {
+      "player_id": "201939",
+      "season": "2011-12",
+      "endpoint": "PlayerGameLog",
+      "sha256": "b969851833929ba625c12e6eb94aaf0ea85fe0db5eba98ed9b9128a21a91c979",
+      "retrieved_at": "2026-10-09T05:21:36.451555+00:00"
+    },
+    {
+      "player_id": "201939",
+      "season": "2012-13",
+      "endpoint": "PlayerGameLog",
+      "sha256": "e65943dda5f894a0132cb49cf3b5f8afe07a5b51c33fa7cc4f3d88c8913a6f8c",
+      "retrieved_at": "2026-10-09T05:21:37.062976+00:00"
+    },
+    {
+      "player_id": "201939",
+      "season": "2013-14",
+      "endpoint": "PlayerGameLog",
+      "sha256": "6283e0a37da15593674ead97d427cb93965bfab8f1ae9bdc4a9e500850fe23c6",
+      "retrieved_at": "2026-10-09T05:21:37.684495+00:00"
+    },
+    {
+      "player_id": "201939",
+      "season": "2014-15",
+      "endpoint": "PlayerGameLog",
+      "sha256": "ee564bb016751dc147ea1f3cad19195bae2078f0ed560bc273d76d746457e359",
+      "retrieved_at": "2026-10-09T05:21:38.292157+00:00"
+    },
+    {
+      "player_id": "201939",
+      "season": "2015-16",
+      "endpoint": "PlayerGameLog",
+      "sha256": "769f98e9c630e22a911277ee5e1cb2b2f613d1537d56cfc2e9930fff61430b8c",
+      "retrieved_at": "2026-10-09T05:21:38.909119+00:00"
+    },
+    {
+      "player_id": "201939",
+      "season": "2016-17",
+      "endpoint": "PlayerGameLog",
+      "sha256": "c9e146057855a193b150cd137c39eed422fe76d819c40d0f99d655eebee6f661",
+      "retrieved_at": "2026-10-09T05:21:39.528840+00:00"
+    },
+    {
+      "player_id": "201939",
+      "season": "2017-18",
+      "endpoint": "PlayerGameLog",
+      "sha256": "20b408c4bc9588ebded070fe857db65cdd00d6324ef76f324c780cb0c92f21e0",
+      "retrieved_at": "2026-10-09T05:21:40.151009+00:00"
+    },
+    {
+      "player_id": "201939",
+      "season": "2018-19",
+      "endpoint": "PlayerGameLog",
+      "sha256": "8fe0449c26b1aeeed1dc59a85da2bba7c05f01501b7dececfb1d3dd8046e179e",
+      "retrieved_at": "2026-10-09T05:21:40.757797+00:00"
+    },
+    {
+      "player_id": "201939",
+      "season": "2019-20",
+      "endpoint": "PlayerGameLog",
+      "sha256": "0b22ba234bbc83b8c80d9ce4efea5e8b003ff263c403223e5f37f894e1b41ae5",
+      "retrieved_at": "2026-10-09T05:21:41.283193+00:00"
+    },
+    {
+      "player_id": "201939",
+      "season": "2020-21",
+      "endpoint": "PlayerGameLog",
+      "sha256": "85ac8b1bfa9532fc6cb05ceb2deaa2cd2c6d56fbe07f35ed061d32143a47ce3a",
+      "retrieved_at": "2026-10-09T05:21:41.876513+00:00"
+    },
+    {
+      "player_id": "201939",
+      "season": "2021-22",
+      "endpoint": "PlayerGameLog",
+      "sha256": "28e6929be7bee5b3e77ce549143595fbcc70a472775bff4b56e573cfdc6479d3",
+      "retrieved_at": "2026-10-09T05:21:42.417122+00:00"
+    },
+    {
+      "player_id": "201939",
+      "season": "2022-23",
+      "endpoint": "PlayerGameLog",
+      "sha256": "c6daadcc9f9112893bd3549b038a5ba1832cd2b6156cf263476e23862fe07a13",
+      "retrieved_at": "2026-10-09T05:21:42.945027+00:00"
+    },
+    {
+      "player_id": "201939",
+      "season": "2023-24",
+      "endpoint": "PlayerGameLog",
+      "sha256": "3503fe0e3833bb3d6bbbb4b185bb5fab711ca9e1e36fe3b90901905811fbf725",
+      "retrieved_at": "2026-10-09T05:21:43.517576+00:00"
+    },
+    {
+      "player_id": "201939",
+      "season": "2024-25",
+      "endpoint": "PlayerGameLog",
+      "sha256": "a72ba9f8d1c461a3f9898aaf31829439e3632ff54c3732efecafdf26844f657a",
+      "retrieved_at": "2026-10-09T05:21:44.046320+00:00"
+    },
+    {
+      "player_id": "1630595",
+      "season": "2021-22",
+      "endpoint": "PlayerGameLog",
+      "sha256": "bc3728c76e4363c3a08878116cfa2c9392f272c97ee8baf14243173d0e89a4e3",
+      "retrieved_at": "2026-10-10T16:00:10.035393+00:00"
+    },
+    {
+      "player_id": "1630595",
+      "season": "2022-23",
+      "endpoint": "PlayerGameLog",
+      "sha256": "b80484d910ec5255ed8febb2108d870abc717bac465f7d22d1eeb5e40f9e986c",
+      "retrieved_at": "2026-10-10T16:00:10.661032+00:00"
+    },
+    {
+      "player_id": "1630595",
+      "season": "2023-24",
+      "endpoint": "PlayerGameLog",
+      "sha256": "e9eb2906878edcc80dafb25a08dd2b20446dd9b6d1ae3e5e959586464fd30012",
+      "retrieved_at": "2026-10-10T16:00:11.270638+00:00"
+    },
+    {
+      "player_id": "1630595",
+      "season": "2024-25",
+      "endpoint": "PlayerGameLog",
+      "sha256": "7e2a74d00d09d72c24144749f0423d4f34a05339c7b0398c091d666d69b7c215",
+      "retrieved_at": "2026-10-10T16:00:11.988022+00:00"
+    },
+    {
+      "player_id": "1626167",
+      "season": "2015-16",
+      "endpoint": "PlayerGameLog",
+      "sha256": "513df897bb98cb2ede323fc14111efbc089519d13097fca09487951d50f95fb6",
+      "retrieved_at": "2026-10-11T04:52:56.332462+00:00"
+    },
+    {
+      "player_id": "1626167",
+      "season": "2016-17",
+      "endpoint": "PlayerGameLog",
+      "sha256": "0fb611704e0644f166bac9a766cfe4ba29374b18e32178e34b8c338f0a92030c",
+      "retrieved_at": "2026-10-11T04:52:57.134161+00:00"
+    },
+    {
+      "player_id": "1626167",
+      "season": "2017-18",
+      "endpoint": "PlayerGameLog",
+      "sha256": "40e3f70c4b4b245f6d6a9beba80230b2a4fed9c7eb7ff322440a0cb507a5312c",
+      "retrieved_at": "2026-10-11T04:52:57.753759+00:00"
+    },
+    {
+      "player_id": "1626167",
+      "season": "2018-19",
+      "endpoint": "PlayerGameLog",
+      "sha256": "fa090ea670328da0842cac7d7feecd2935ce0088cb59bf7caf461b71d17d6b41",
+      "retrieved_at": "2026-10-11T04:52:58.261104+00:00"
+    },
+    {
+      "player_id": "1626167",
+      "season": "2019-20",
+      "endpoint": "PlayerGameLog",
+      "sha256": "a8b30c008373e8a0e1a818d576bafd115627229fd920ed6e30938df1831fb796",
+      "retrieved_at": "2026-10-11T04:52:58.985912+00:00"
+    },
+    {
+      "player_id": "1626167",
+      "season": "2020-21",
+      "endpoint": "PlayerGameLog",
+      "sha256": "93d18c1f0d3333d8f7365c377197dd8b0e9c1c75defafcf5b81346ae15aa5f1c",
+      "retrieved_at": "2026-10-11T04:52:59.497101+00:00"
+    },
+    {
+      "player_id": "1626167",
+      "season": "2021-22",
+      "endpoint": "PlayerGameLog",
+      "sha256": "3b9d8a82a39be43eb5aaaf44bb009c2c7bc3d0910658264a0a22212cef07e12f",
+      "retrieved_at": "2026-10-11T04:53:00.012438+00:00"
+    },
+    {
+      "player_id": "1626167",
+      "season": "2022-23",
+      "endpoint": "PlayerGameLog",
+      "sha256": "cc2e4e6ef71ab82ffb6dc7d9a4f6e6a78ce347e00f52e28bccf46acb017bf6a9",
+      "retrieved_at": "2026-10-11T04:53:00.514132+00:00"
+    },
+    {
+      "player_id": "1626167",
+      "season": "2023-24",
+      "endpoint": "PlayerGameLog",
+      "sha256": "5fb6f8fe91b39fcd851353ec88eb600076357a436a4957447ef70a1a76d0beb4",
+      "retrieved_at": "2026-10-11T04:53:01.027414+00:00"
+    },
+    {
+      "player_id": "1626167",
+      "season": "2024-25",
+      "endpoint": "PlayerGameLog",
+      "sha256": "1124f96c90c21301d45208e17e58afb0c7f3c0faaf376186679f25a1c354e288",
+      "retrieved_at": "2026-10-11T04:53:01.642306+00:00"
+    },
+    {
+      "player_id": "204456",
+      "season": "2015-16",
+      "endpoint": "PlayerGameLog",
+      "sha256": "2db10883ab58c92fc8d4b460841b09e6e43b5fe5819271866366e678eb04b1a8",
+      "retrieved_at": "2026-10-10T16:02:30.139150+00:00"
+    },
+    {
+      "player_id": "204456",
+      "season": "2016-17",
+      "endpoint": "PlayerGameLog",
+      "sha256": "fed63e9d49a048aecef68e43e9be48b616aa38b501d47e204490528e69f38fb2",
+      "retrieved_at": "2026-10-10T16:02:30.859634+00:00"
+    },
+    {
+      "player_id": "204456",
+      "season": "2017-18",
+      "endpoint": "PlayerGameLog",
+      "sha256": "0a62c8d30beec07ed8eb465bac1b17cc79ae81886e3b1a7ebeed5c7ff6b7784b",
+      "retrieved_at": "2026-10-10T16:02:31.365431+00:00"
+    },
+    {
+      "player_id": "204456",
+      "season": "2018-19",
+      "endpoint": "PlayerGameLog",
+      "sha256": "53230f61691e67a08e80be5b7d15146034cdab4dca772e1123dbb71ecf6054a1",
+      "retrieved_at": "2026-10-10T16:02:31.987113+00:00"
+    },
+    {
+      "player_id": "204456",
+      "season": "2019-20",
+      "endpoint": "PlayerGameLog",
+      "sha256": "77dafc1cd2549d9753d435ffab91b8e26d282c74e5b63a7b72d98aadcddc2c19",
+      "retrieved_at": "2026-10-10T16:02:32.492573+00:00"
+    },
+    {
+      "player_id": "204456",
+      "season": "2020-21",
+      "endpoint": "PlayerGameLog",
+      "sha256": "2a1c5a506e1b93e644488a274d7fec79c1a2afb97da46f68aed16837be112113",
+      "retrieved_at": "2026-10-10T16:02:33.032148+00:00"
+    },
+    {
+      "player_id": "204456",
+      "season": "2021-22",
+      "endpoint": "PlayerGameLog",
+      "sha256": "8e94889232b4e6b54286f51edc1c12837b8ac3917101f2df1e426d268bf13bb5",
+      "retrieved_at": "2026-10-10T16:02:36.991150+00:00"
+    },
+    {
+      "player_id": "204456",
+      "season": "2022-23",
+      "endpoint": "PlayerGameLog",
+      "sha256": "775dedf5e3030b2178b5746778e8d121c9d837ad3dfb80adc0dee3961d136465",
+      "retrieved_at": "2026-10-10T16:02:37.507288+00:00"
+    },
+    {
+      "player_id": "204456",
+      "season": "2023-24",
+      "endpoint": "PlayerGameLog",
+      "sha256": "520d50e734a09d46ed80058cff43e109c16f6ef3d1d4ecbe790fa8badaad1f45",
+      "retrieved_at": "2026-10-10T16:02:38.123674+00:00"
+    },
+    {
+      "player_id": "204456",
+      "season": "2024-25",
+      "endpoint": "PlayerGameLog",
+      "sha256": "c4591b60e4ca79be8e383a44d7103b187c4684c26e7fe3dd254f76a2e4a67bee",
+      "retrieved_at": "2026-10-10T16:02:39.062253+00:00"
+    },
+    {
+      "player_id": "1630167",
+      "season": "2020-21",
+      "endpoint": "PlayerGameLog",
+      "sha256": "715d649e720a8429835fc053ab12e610afd454d2c1225f615ec4b2b94d187dfe",
+      "retrieved_at": "2026-10-10T15:29:04.116307+00:00"
+    },
+    {
+      "player_id": "1630167",
+      "season": "2021-22",
+      "endpoint": "PlayerGameLog",
+      "sha256": "5910a89a1baa285516676c0af54db7cd209ce8dbd09908bd0a6932aa6eb570d6",
+      "retrieved_at": "2026-10-10T15:29:05.439424+00:00"
+    },
+    {
+      "player_id": "1630167",
+      "season": "2022-23",
+      "endpoint": "PlayerGameLog",
+      "sha256": "a35be703b4cb9d921903a9fe9124dab57c6e54ced548878a31755639edef1ee8",
+      "retrieved_at": "2026-10-10T15:29:06.238630+00:00"
+    },
+    {
+      "player_id": "1630167",
+      "season": "2023-24",
+      "endpoint": "PlayerGameLog",
+      "sha256": "edf601ed1db0d0a73dcce2b589cf08d8f26011e1ca8c23fea2a6588c710c10e8",
+      "retrieved_at": "2026-10-10T15:29:06.713775+00:00"
+    },
+    {
+      "player_id": "1630167",
+      "season": "2024-25",
+      "endpoint": "PlayerGameLog",
+      "sha256": "510b97b92a4b36dd6e011dbf42af377a1a6dc00ba6d1a3a17eae9d9259f0c7f9",
+      "retrieved_at": "2026-10-10T15:29:07.455624+00:00"
+    },
+    {
+      "player_id": "1628371",
+      "season": "2017-18",
+      "endpoint": "PlayerGameLog",
+      "sha256": "b9fa055fd7305fc17bff8cd8ea429d8258454d0c9783e92f1b3b456c22b66891",
+      "retrieved_at": "2026-10-11T04:53:06.870131+00:00"
+    },
+    {
+      "player_id": "1628371",
+      "season": "2018-19",
+      "endpoint": "PlayerGameLog",
+      "sha256": "fc9819b051da45e246a7d050c54060d8d72dae8ee600379f92c55f4dbf06dbac",
+      "retrieved_at": "2026-10-11T04:53:07.374131+00:00"
+    },
+    {
+      "player_id": "1628371",
+      "season": "2019-20",
+      "endpoint": "PlayerGameLog",
+      "sha256": "87dc53a0031571e2a29e77864ddecbf427c46d4e8495b19d97fe9df0ba0e243e",
+      "retrieved_at": "2026-10-11T04:53:08.090959+00:00"
+    },
+    {
+      "player_id": "1628371",
+      "season": "2020-21",
+      "endpoint": "PlayerGameLog",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "retrieved_at": "2026-10-11T04:53:08.612673+00:00"
+    },
+    {
+      "player_id": "1628371",
+      "season": "2021-22",
+      "endpoint": "PlayerGameLog",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "retrieved_at": "2026-10-11T04:53:08.911404+00:00"
+    },
+    {
+      "player_id": "1628371",
+      "season": "2022-23",
+      "endpoint": "PlayerGameLog",
+      "sha256": "c9e70ca7a3234bb122d176369c69aef589f7731bd74efdacea834c4615dca1ee",
+      "retrieved_at": "2026-10-11T04:53:09.418132+00:00"
+    },
+    {
+      "player_id": "1628371",
+      "season": "2023-24",
+      "endpoint": "PlayerGameLog",
+      "sha256": "9080b5c83906c44de4db8582060741330e684621cc24e2cdc160eb982435138a",
+      "retrieved_at": "2026-10-11T04:53:09.940891+00:00"
+    },
+    {
+      "player_id": "1628371",
+      "season": "2024-25",
+      "endpoint": "PlayerGameLog",
+      "sha256": "95b134443d16bf175211442f1b6fbd1f725af63ecf52eed69b1a9372d57a7652",
+      "retrieved_at": "2026-10-11T04:53:10.458132+00:00"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { LABELS, STATS, prettyDate, request } from "./api";
+import { LABELS, STATS, prettyDate, request, getDataMode } from "./api";
 import type { ForecastHistory, ForecastRefresh } from "./api";
 
 const value = (number: number | null | undefined) =>
@@ -75,7 +75,11 @@ export default function ForecastTracking() {
       <div className="section-heading">
         <div>
           <h2>Results</h2>
-          <p>Saved forecasts and final stats.</p>
+          <p>
+            {getDataMode() === "replay"
+              ? "Your replay scenarios and historical outcomes."
+              : "Saved forecasts and final stats."}
+          </p>
         </div>
         <div className="tracking-actions">
           <button
@@ -90,7 +94,9 @@ export default function ForecastTracking() {
           </button>
           <button
             className="today-button"
-            disabled={busy || refreshing || !history?.total}
+            disabled={
+              busy || refreshing || !history?.total || getDataMode() === "live"
+            }
             onClick={refreshResults}
           >
             {refreshing ? "Refreshing results…" : "Refresh results"}
@@ -103,6 +109,14 @@ export default function ForecastTracking() {
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
+      {getDataMode() !== "server" && (
+        <p className="table-note">
+          History is kept in this browser, with up to 100 scenarios per mode.{" "}
+          {getDataMode() === "replay"
+            ? "These are retrospective replay results, not evidence of forecasts made before tipoff."
+            : "Live outcome refresh is not enabled in this public demo."}
+        </p>
+      )}
       {busy && <p role="status">Loading saved forecasts…</p>}
       {history?.stub_mode && (
         <p className="synthetic-notice">
@@ -128,15 +142,21 @@ export default function ForecastTracking() {
           <details className="prediction-details">
             <summary>How accuracy is measured</summary>
             <p>
-              Accuracy uses the first forecast per player/game. Later scenarios
-              remain in history. Confirmed zero-minute appearances are excluded;
-              missing game logs remain pending.
+              {history.replay_mode ? "Replay comparisons use" : "Accuracy uses"}{" "}
+              the first {history.replay_mode ? "scenario" : "forecast"} per
+              player/game. Later scenarios remain in history. Confirmed
+              zero-minute appearances are excluded; missing game logs remain
+              pending.
             </p>
           </details>
           {history.summary.evaluated_games > 0 ? (
             <div className="table-scroll">
               <table className="tracking-table">
-                <caption>Saved forecast accuracy</caption>
+                <caption>
+                  {history.replay_mode
+                    ? "Replay comparisons"
+                    : "Saved forecast accuracy"}
+                </caption>
                 <thead>
                   <tr>
                     <th>Stat</th>

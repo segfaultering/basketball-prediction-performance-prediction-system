@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "preview": "vite preview",
     "build": "tsc -b && vite build",
     "check": "tsc -b && prettier --check src e2e *.json *.ts index.html",
     "format": "prettier --write src e2e *.json *.ts index.html",

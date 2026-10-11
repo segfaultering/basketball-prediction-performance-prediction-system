@@ -37,6 +37,10 @@ import {
   shiftDate,
   tipoff,
   utcToday,
+  initialDate,
+  getDataMode,
+  setDataMode,
+  portfolioEnabled,
 } from "./api";
 import type {
   Backtest,
@@ -45,6 +49,7 @@ import type {
   Prediction,
   PredictionInput,
   Stat,
+  DataMode,
 } from "./api";
 
 const TEAM_COLORS: Record<string, string> = {
@@ -222,6 +227,26 @@ function StatCard({ stat, result }: { stat: Stat; result: Prediction | null }) {
 }
 
 export default function App() {
+  const [mode, setMode] = useState<DataMode>(getDataMode);
+  return (
+    <Dashboard
+      key={mode}
+      mode={mode}
+      changeMode={(next) => {
+        setDataMode(next);
+        setMode(next);
+      }}
+    />
+  );
+}
+
+function Dashboard({
+  mode,
+  changeMode,
+}: {
+  mode: DataMode;
+  changeMode: (mode: DataMode) => void;
+}) {
   const [view, setView] = useState<View>("predictions");
   const viewTitle =
     view === "board"
@@ -232,7 +257,7 @@ export default function App() {
           ? "Model insights"
           : "Predictions";
   const [help, setHelp] = useState(false);
-  const [date, setDate] = useState(utcToday);
+  const [date, setDate] = useState(initialDate);
   const [refresh, setRefresh] = useState(0);
   const [health, setHealth] = useState<{ stub_mode: boolean } | null>(null);
   const [healthError, setHealthError] = useState("");
@@ -448,17 +473,58 @@ export default function App() {
             </h1>
           </div>
           <div className="header-right">
+            {portfolioEnabled && (
+              <div
+                className="experience-switch"
+                role="group"
+                aria-label="Data experience"
+              >
+                <button
+                  aria-pressed={mode === "replay"}
+                  onClick={() => changeMode("replay")}
+                >
+                  NBA replay
+                </button>
+                <button
+                  aria-pressed={mode === "live"}
+                  onClick={() => changeMode("live")}
+                >
+                  Live NBA
+                </button>
+              </div>
+            )}
             <ThemeToggle />
             <span className={`mode-pill ${health?.stub_mode ? "demo" : ""}`}>
               <span />
-              {health
-                ? health.stub_mode
-                  ? "Synthetic demo"
-                  : "Live NBA data"
-                : "Connecting"}
+              {mode === "replay"
+                ? "Historical replay"
+                : health
+                  ? health.stub_mode
+                    ? "Synthetic demo"
+                    : "Live NBA data"
+                  : "Connecting"}
             </span>
           </div>
         </header>
+        {mode === "replay" && (
+          <div className="replay-notice">
+            <span>
+              <strong>March 8, 2025 replay</strong> · Real NBA history, six
+              featured players. Predictions were rebuilt after the games using
+              earlier data.
+            </span>
+            <a href="https://github.com/segfaultering/basketball-prediction-performance-prediction-system#portfolio-demo">
+              How it works ↗
+            </a>
+          </div>
+        )}
+        {mode === "live" && (
+          <p className="live-notice">
+            {health
+              ? "Live NBA data can be delayed or unavailable. Your saved history stays in this browser."
+              : "Connecting to the live API. The free server may take about a minute to wake up; NBA replay stays available."}
+          </p>
+        )}
         {healthError && (
           <ErrorNotice
             message={`Cannot reach the prediction engine: ${healthError}`}
@@ -474,11 +540,16 @@ export default function App() {
           <>
             <section className="schedule-section" aria-label="Scheduled games">
               <div className="section-heading">
-                <StepTitle step="01" title="Games" subtitle="UTC" />
+                <StepTitle
+                  step="01"
+                  title="Games"
+                  subtitle={mode === "replay" ? "NBA game date" : "UTC"}
+                />
                 <div className="date-controls">
                   <button
                     className="icon-button"
                     aria-label="Previous day"
+                    disabled={mode === "replay"}
                     onClick={() => setDate(shiftDate(date, -1))}
                   >
                     <ChevronLeft size={17} />
@@ -486,8 +557,13 @@ export default function App() {
                   <label className="date-picker">
                     <CalendarDays size={15} />
                     <input
-                      aria-label="Game date (UTC)"
+                      aria-label={
+                        mode === "replay"
+                          ? "Replay date (NBA)"
+                          : "Game date (UTC)"
+                      }
                       type="date"
+                      disabled={mode === "replay"}
                       value={date}
                       onChange={(e) => {
                         if (e.target.value) setDate(e.target.value);
@@ -497,15 +573,18 @@ export default function App() {
                   <button
                     className="icon-button"
                     aria-label="Next day"
+                    disabled={mode === "replay"}
                     onClick={() => setDate(shiftDate(date, 1))}
                   >
                     <ChevronRight size={17} />
                   </button>
                   <button
                     className="today-button"
-                    onClick={() => setDate(utcToday())}
+                    onClick={() =>
+                      setDate(mode === "replay" ? initialDate() : utcToday())
+                    }
                   >
-                    Today
+                    {mode === "replay" ? "Replay date" : "Today"}
                   </button>
                   <button
                     className="icon-button"
@@ -546,9 +625,11 @@ export default function App() {
                       <div className="game-card-top">
                         <span>
                           <span className="small-dot" />
-                          SCHEDULED
+                          {g.replay_mode ? "REPLAY" : "SCHEDULED"}
                         </span>
-                        <span>{tipoff(g)}</span>
+                        <span>
+                          {g.replay_mode ? "Completed game" : tipoff(g)}
+                        </span>
                       </div>
                       <div className="matchup">
                         <TeamBadge team={g.away_team} />
@@ -691,21 +772,23 @@ export default function App() {
                     <p>Recent average.</p>
                   )}
                 </div>
-                <details className="advanced-options">
-                  <summary>
-                    <SlidersHorizontal size={14} />
-                    History options
-                  </summary>
-                  <label>
-                    History seasons
-                    <input
-                      placeholder="Full career (automatic)"
-                      value={seasons}
-                      onChange={(e) => setSeasons(e.target.value)}
-                    />
-                  </label>
-                  <p>Example: 2024-25, 2025-26.</p>
-                </details>
+                {mode !== "replay" && (
+                  <details className="advanced-options">
+                    <summary>
+                      <SlidersHorizontal size={14} />
+                      History options
+                    </summary>
+                    <label>
+                      History seasons
+                      <input
+                        placeholder="Full career (automatic)"
+                        value={seasons}
+                        onChange={(e) => setSeasons(e.target.value)}
+                      />
+                    </label>
+                    <p>Example: 2024-25, 2025-26.</p>
+                  </details>
+                )}
                 <button
                   className="predict-button"
                   disabled={
@@ -759,13 +842,16 @@ export default function App() {
                     </button>
                   )}
                 </div>
-                {view === "predictions" && player && game && (
-                  <PlayerResearch
-                    key={`${gameId}:${playerId}`}
-                    playerId={playerId}
-                    gameId={gameId}
-                  />
-                )}
+                {mode === "server" &&
+                  view === "predictions" &&
+                  player &&
+                  game && (
+                    <PlayerResearch
+                      key={`${gameId}:${playerId}`}
+                      playerId={playerId}
+                      gameId={gameId}
+                    />
+                  )}
                 {predictionError && (
                   <ErrorNotice message={predictionError} retry={predict} />
                 )}
@@ -793,7 +879,8 @@ export default function App() {
                   <div className="forecast-meta">
                     {result.forecast_id && (
                       <span>
-                        <Check size={14} /> Saved
+                        <Check size={14} />{" "}
+                        {result.replay_mode ? "Saved replay" : "Saved"}
                       </span>
                     )}
                     <span>
@@ -958,6 +1045,11 @@ export default function App() {
                       {backtestError && <ErrorNotice message={backtestError} />}
                       {backtest && (
                         <>
+                          {backtest.evaluation_scope && (
+                            <p className="table-note">
+                              {backtest.evaluation_scope}
+                            </p>
+                          )}
                           <p className="evaluation-count">
                             {backtest.evaluated_games} games evaluated
                             {backtest.stub_mode ? " · Synthetic data" : ""}

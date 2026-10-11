@@ -11,6 +11,114 @@ uv sync
 uv run bpps --help
 ```
 
+## Portfolio demo
+
+The hosted portfolio build opens an **NBA replay** of March 8, 2025. It includes
+six featured players across DET–GSW, IND–ATL, and ORL–MIL. The replay uses real
+NBA game logs, not synthetic fixtures. Its date is the NBA boxscore game date;
+it is not a claim that all three games tipped off on that UTC date.
+
+The browser loads a bundled snapshot, so predictions, whole-minute scenarios
+from 0–48, the daily board, prepared backtests, and outcome comparisons work
+without a running API. Models and features use only games before the replay
+date. These predictions were rebuilt retrospectively: they are **not forecasts
+archived before tipoff**, and their comparison with actual results is not a
+prospective accuracy claim. Backtests are explicitly scoped to the last 80
+positive-minute appearances before the replay, rather than the full career.
+The player lists are curated selections, not complete historical rosters.
+
+Use **Live NBA** to fetch upcoming games and generate current forecasts through
+the Python API. Failures stay in live mode with a retry message; the application
+never silently substitutes replay or synthetic predictions. Switch back to
+**NBA replay** whenever the API is unavailable or there are no upcoming games.
+The replay snapshot never refreshes itself from live NBA endpoints.
+
+Portfolio history belongs to the visitor's browser, with separate replay and
+live records and a maximum of 100 scenarios per mode. Replay **Refresh results**
+attaches bundled actual outcomes. Live outcome refresh is deferred; live records
+stay pending. Clearing browser storage removes history. When storage is blocked,
+records survive only in memory for that session. The normal local application
+still uses its existing SQLite forecast archive.
+
+The source CSV and provenance manifest are in [examples/replay](examples/replay).
+The manifest records NBA player source links, upstream response hashes, season
+identities, retrieval timestamps, and the source CSV checksum. Rebuild the
+prepared snapshot offline using the production prediction engine:
+
+```bash
+uv run python -m bpps.replay
+```
+
+This intentionally performs training and evaluation before deployment. The
+generated [snapshot](frontend/public/replay/snapshot.json) is committed so frontend
+builds need neither Python training nor NBA access. To update the replay, replace
+the CSV and its manifest, rebuild the snapshot, and update the replay date and
+description in the frontend. Keep the chronological tests passing.
+
+Preview the standalone portfolio build locally:
+
+```bash
+cd frontend
+npm ci
+VITE_PORTFOLIO_DEMO=1 VITE_BASE_PATH=/ VITE_API_BASE_URL=http://127.0.0.1:8000 npm run build
+npm run preview -- --base /
+```
+
+For live mode during this preview, start the API from the repository root:
+
+```bash
+PUBLIC_DEMO=1 STUB_MODE=0 DEBUG=0 CORS_ORIGINS='["http://localhost:4173","http://127.0.0.1:4173"]' uv run uvicorn bpps.api:app
+```
+
+The public configuration allows one active prediction and ten prediction
+attempts per minute across the single API process. It rejects additional work
+with retryable 503/429 responses. Shared forecast history, live backtests, and
+Gemini research are disabled in this deployment; the prepared replay demonstrates
+evaluation without public requests starting full-career backtests or paid
+research. `PUBLIC_DEMO=1` refuses `DEBUG=1` and `STUB_MODE=1` at startup.
+
+### Free-tier deployment
+
+Use a static frontend on **Cloudflare Pages** and the Python backend on **Render**:
+
+1. On Render, create a Blueprint from this repository using [render.yaml](render.yaml).
+   It builds [Dockerfile](Dockerfile), runs as a non-root user with one worker,
+   and checks `/ready`. Enter `CORS_ORIGINS` as a JSON array containing your exact
+   Pages origin, for example `["https://courtside.pages.dev"]`.
+2. On Cloudflare Pages, set the root directory to `frontend`, the build command
+   to `npm ci && npm run build`, and the output directory to `dist`. Set
+   `VITE_PORTFOLIO_DEMO=1`, `VITE_BASE_PATH=/`, and
+   `VITE_API_BASE_URL=https://YOUR-API.onrender.com` before building. These values
+   are public configuration, not secrets; never put a Gemini key in a `VITE_*`
+   variable. See [frontend/.env.example](frontend/.env.example).
+3. If the generated Pages origin differs, update Render's CORS allowlist. It
+   accepts explicit HTTPS origins or local development origins, without trailing
+   slashes. Replay remains available even with an incorrect/unavailable API URL.
+4. Smoke-test the replay prediction, minute override, daily board, backtest,
+   history refresh, and live-mode failure/recovery on desktop and mobile.
+
+Render's free API can sleep after inactivity and lose local files on restart.
+The static replay does not wake it or rely on its SQLite database or cache.
+Live mode explains startup delays and uses a 90-second browser request deadline.
+Model/response caches are disposable; there is no paid database or background
+worker in this setup. See [Render's free-service limits](https://render.com/docs/free)
+and [Cloudflare Pages deployment documentation](https://developers.cloudflare.com/pages/).
+
+GitHub Actions runs the Python suite and required checks, frontend checks/tests,
+the existing synthetic API browser tests, a separate API-independent portfolio
+browser suite, and a container build/readiness smoke test. Browser dependencies
+are installed in CI. To run the portfolio browser suite locally, build the
+portfolio with `VITE_API_BASE_URL=https://unavailable.example`, then run:
+
+```bash
+cd frontend
+npx playwright install --with-deps chromium
+npx playwright test --config portfolio.playwright.config.ts
+```
+
+These files prepare deployment; they do not provision hosting accounts or
+publish a site automatically.
+
 ### Offline example
 
 The example history and schedule are **synthetic**, not actual NBA results or fixtures. They demonstrate the full workflow without network access:

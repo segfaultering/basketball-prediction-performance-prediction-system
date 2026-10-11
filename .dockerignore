@@ -1,0 +1,12 @@
+.git
+.env
+.env.*
+.venv
+.cache
+data
+frontend
+examples
+notebooks
+tests
+**/__pycache__
+**/*.pyc

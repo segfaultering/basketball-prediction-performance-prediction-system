@@ -7,6 +7,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
+import { apiBase } from "./api";
 
 export type View = "predictions" | "insights" | "tracking" | "board";
 
@@ -23,10 +24,13 @@ export default function Sidebar({
 }) {
   const [open, setOpen] = useState(false);
   const drawer = useRef<HTMLDialogElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (open) drawer.current?.showModal();
-    else drawer.current?.close();
+    if (open) {
+      drawer.current?.showModal();
+      closeButton.current?.focus();
+    } else drawer.current?.close();
   }, [open]);
 
   function select(next: View) {
@@ -66,7 +70,11 @@ export default function Sidebar({
         }}
       >
         <div className="sidebar-header">
-          <a className="brand" href="/ui/" aria-label="Courtside home">
+          <a
+            className="brand"
+            href={import.meta.env.BASE_URL}
+            aria-label="Courtside home"
+          >
             <span>
               courtside<span className="brand-dot">.</span>
             </span>
@@ -74,6 +82,7 @@ export default function Sidebar({
           <button
             className="icon-button"
             aria-label="Close navigation"
+            ref={closeButton}
             onClick={() => setOpen(false)}
             autoFocus
           >
@@ -126,7 +135,7 @@ export default function Sidebar({
         <div className="sidebar-bottom">
           <span className={`connection-dot ${online ? "connected" : ""}`} />
           {online ? "Online" : "Connecting…"}
-          <a href="/docs">API docs</a>
+          <a href={`${apiBase}/docs`}>API docs</a>
         </div>
       </dialog>
     </>
