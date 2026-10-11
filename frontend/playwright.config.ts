@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 import { resolve } from "node:path";
 
 export default defineConfig({
+  workers: 1,
   testDir: "./e2e",
   testIgnore: "**/replay.spec.ts",
   timeout: 60_000,

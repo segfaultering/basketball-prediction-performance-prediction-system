@@ -20,6 +20,7 @@ export default defineConfig({
     ),
   },
   test: {
+    maxWorkers: 1,
     environment: "jsdom",
     include: ["src/**/*.test.tsx", "src/**/*.test.ts"],
     restoreMocks: true,

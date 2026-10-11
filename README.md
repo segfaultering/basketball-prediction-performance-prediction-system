@@ -112,12 +112,77 @@ portfolio with `VITE_API_BASE_URL=https://unavailable.example`, then run:
 
 ```bash
 cd frontend
-npx playwright install --with-deps chromium
+npx playwright install --with-deps --only-shell chromium
 npx playwright test --config portfolio.playwright.config.ts
 ```
 
 These files prepare deployment; they do not provision hosting accounts or
 publish a site automatically.
+
+### Running and testing on an 8 GB machine
+
+The supported low-memory workflow runs builds, tests, and replay generation
+sequentially. Vitest and both Playwright suites use one worker. Python tests and
+the replay generator also run sequentially; the deployed API uses one worker and
+one active prediction. Linear models train on one player's history at a time.
+Full-career backtests can take time; do not start several at once.
+
+For Docker Desktop, allocate about **3 GB to Docker/WSL**, leaving the rest for
+the host OS, editor, and browser. Close unrelated containers before verification.
+On WSL 2, the VM memory allowance is shared by Linux processes and Docker; do not
+count it as an additional allowance. Avoid running tests alongside a live API,
+Jupyter, or another build. Docker images and browser downloads need disk space
+as well; a RAM limit does not limit image size.
+
+Build and smoke-test the API with a 1 GB runtime cap:
+
+```bash
+docker build -t courtside-api .
+docker run --rm --memory=1g --memory-swap=1g --cpus=2 -p 8000:8000 \
+  -e 'CORS_ORIGINS=["http://localhost:4173","http://127.0.0.1:4173"]' courtside-api
+```
+
+Visit `http://localhost:8000/ready`. This image serves the public API; the
+standalone frontend is built separately as described above. Stop the API before
+running the verification container:
+
+```bash
+docker build -f Dockerfile.verify -t courtside-verify .
+docker run --rm --memory=2g --memory-swap=2g --cpus=2 --shm-size=256m courtside-verify
+```
+
+The verification image installs the locked Python/Node dependencies and Chromium
+without using host caches. It runs all required Python checks, Python tests,
+real replay regeneration (including training and backtesting), the bundled
+research notebook using real CSV history, frontend checks,
+unit tests, both builds, and desktop/mobile browser suites. Every stage shares a
+**2 GB container limit with no swap allowance**. It reports the cgroup peak
+memory, which includes child processes and charged file cache. CI repeats this
+constrained run. This verifies the bundled workloads; unbounded user datasets,
+third-party notebooks, and other applications sharing the machine are outside
+that measurement.
+
+Local validation passed all 154 Python tests, 34 frontend tests, 14 browser
+tests, both builds, replay generation, the full-career Curry CLI backtest, and
+the research notebook. Two capped runs peaked at 980–1,280 MiB, with no OOM
+events. The API also passed readiness under a separate 1 GB cap. Builds ran
+with Docker reporting roughly 3 GB of allocated memory. These are measured
+results for the bundled data, rather than a guarantee for arbitrary datasets.
+
+For native development, use the same sequential approach and export these
+limits before the normal commands:
+
+```bash
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+export UV_CONCURRENT_INSTALLS=1 UV_CONCURRENT_BUILDS=1
+export NODE_OPTIONS=--max-old-space-size=1024
+uv sync --frozen
+```
+
+Run one `uv run` or `npm run` task at a time. The Node setting limits the V8 heap,
+not total process memory; Docker's cap is the reproducible total-memory check.
+The optional research dependency group is unnecessary for running the app or
+tests. Run notebooks separately if needed.
 
 ### Offline example
 
