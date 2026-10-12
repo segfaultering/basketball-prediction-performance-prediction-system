@@ -140,6 +140,57 @@ async function selectPlayer() {
 }
 
 describe("prediction workflow", () => {
+  it("shows validation errors for the selected method after training", async () => {
+    predictionHandler = () =>
+      json({
+        ...forecast,
+        model: {
+          ...forecast.model,
+          stats: {
+            ...forecast.model.stats,
+            rebounds: {
+              ...forecast.model.stats.points,
+              active: false,
+              baseline_mae: 2,
+              model_mae: 3,
+            },
+          },
+        },
+      });
+    const user = await selectPlayer();
+    await user.click(
+      screen.getByRole("button", { name: /Generate prediction/ }),
+    );
+    const accuracy = await screen.findByRole("region", {
+      name: "Model validation accuracy",
+    });
+    expect(accuracy.textContent).toContain("20 later historical games");
+    expect(accuracy.textContent).toContain("Synthetic data");
+    const points = within(accuracy).getByRole("row", { name: /Points/ });
+    expect(points.textContent).toContain("7.00");
+    expect(points.textContent).toContain("8.00");
+    const rebounds = within(accuracy).getByRole("row", { name: /Rebounds/ });
+    expect(rebounds.textContent).toContain("2.00");
+    expect(rebounds.textContent).not.toContain("3.00");
+    expect(accuracy.textContent).toContain("not an untouched test set");
+  });
+
+  it("explains unavailable validation for short histories", async () => {
+    predictionHandler = () =>
+      json({
+        ...forecast,
+        model: { ...forecast.model, status: "insufficient_history" },
+      });
+    const user = await selectPlayer();
+    await user.click(
+      screen.getByRole("button", { name: /Generate prediction/ }),
+    );
+    await screen.findByText(/Validation accuracy is unavailable/);
+    expect(
+      screen.queryByRole("region", { name: "Model validation accuracy" }),
+    ).toBeNull();
+  });
+
   it("explores minutes locally without saving or changing the current forecast", async () => {
     const user = await selectPlayer();
     await user.click(

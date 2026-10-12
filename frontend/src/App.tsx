@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ForecastTracking from "./ForecastTracking";
 import DailyForecasts from "./DailyForecasts";
 import MinutesExplorer from "./MinutesExplorer";
+import ModelAccuracy from "./ModelAccuracy";
 import ThemeToggle from "./ThemeToggle";
 import TeamBadge from "./TeamBadge";
 import Sidebar from "./Sidebar";
@@ -932,6 +933,7 @@ function Dashboard({
                         Model insights <ArrowUpRight size={13} />
                       </button>
                     </div>
+                    {result && <ModelAccuracy result={result} />}
                     {result && (
                       <MinutesExplorer
                         key={`${result.player_id}:${result.game_id}:${result.projected_minutes}`}
