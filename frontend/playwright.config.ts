@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 export default defineConfig({
   workers: 1,
   testDir: "./e2e",
-  testIgnore: ["**/replay.spec.ts", "**/auth.spec.ts"],
+  testIgnore: "**/replay.spec.ts",
   timeout: 60_000,
   use: { baseURL: "http://127.0.0.1:8012", trace: "retain-on-failure" },
   projects: [

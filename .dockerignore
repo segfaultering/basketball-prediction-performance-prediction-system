@@ -4,12 +4,7 @@
 .venv
 .cache
 data
-frontend/node_modules
-frontend/dist
-frontend/test-results
-frontend/playwright-report
-frontend/*.tsbuildinfo
-frontend/.env*
+frontend
 examples
 notebooks
 tests

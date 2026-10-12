@@ -9,6 +9,5 @@ frontend/dist
 frontend/test-results
 frontend/playwright-report
 frontend/*.tsbuildinfo
-frontend/.env*
 **/__pycache__
 **/*.pyc

@@ -134,9 +134,7 @@ class PredictionService:
             )
         return game, game_date, home, player_name
 
-    def prediction(
-        self, body: PredictionRequest, forecast_store: ForecastStore | None = None
-    ):
+    def prediction(self, body: PredictionRequest):
         game, game_date, home, player_name = self.player_context(
             body.player_id, body.game_id
         )
@@ -164,14 +162,13 @@ class PredictionService:
             result["warnings"].append(
                 "Synthetic stub data; this is not a real NBA prediction."
             )
-        store = forecast_store if forecast_store is not None else self.forecast_store
-        if store is not None:
+        if self.forecast_store is not None:
             # Training may cross tipoff. Never archive a post-tipoff forecast.
             try:
                 require_pregame(dict(game))
             except ValueError as exc:
                 raise HTTPException(409, str(exc)) from exc
-            result.update(store.save(body.model_dump(), result))
+            result.update(self.forecast_store.save(body.model_dump(), result))
         return result
 
     def minute_scenarios(self, body: ScenarioRequest):

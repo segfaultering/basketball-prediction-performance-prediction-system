@@ -1,5 +1,3 @@
-import { accessToken, authEnabled } from "./auth";
-
 export type Stat = "points" | "rebounds" | "assists" | "steals" | "blocks";
 export const STATS: Stat[] = [
   "points",
@@ -175,21 +173,14 @@ export async function request<T>(
     const { replayRequest } = await import("./portfolio");
     return replayRequest<T>(path, signal, body);
   }
-  if (mode === "live" && !authEnabled && path.startsWith("/forecasts")) {
+  if (mode === "live" && path.startsWith("/forecasts")) {
     const { historyRequest } = await import("./portfolio");
     return historyRequest<T>(mode, path);
   }
   const deadline = mode === "live" ? AbortSignal.timeout(90_000) : undefined;
   let response: Response;
-  const token =
-    path === "/health" || !authEnabled ? undefined : await accessToken();
-  signal?.throwIfAborted();
   try {
     response = await fetch(`${apiBase}${path}`, {
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(body ? { "Content-Type": "application/json" } : {}),
-      },
       signal: deadline
         ? signal
           ? AbortSignal.any([signal, deadline])
@@ -198,6 +189,7 @@ export async function request<T>(
       ...(body
         ? {
             method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
           }
         : {}),
@@ -210,10 +202,6 @@ export async function request<T>(
     throw error;
   }
   if (!response.ok) {
-    if (response.status === 401)
-      throw new Error(
-        "Your session has expired. Please sign out and sign in again.",
-      );
     const retryHeader = response.headers.get("Retry-After");
     const retrySeconds = retryHeader ? Number(retryHeader) : NaN;
     const wait =
@@ -255,7 +243,7 @@ export async function request<T>(
     );
   }
   signal?.throwIfAborted();
-  if (mode === "live" && !authEnabled && path === "/predictions") {
+  if (mode === "live" && path === "/predictions") {
     const { saveVisitorForecast } = await import("./portfolio");
     return saveVisitorForecast(mode, body as PredictionInput, result) as T;
   }
