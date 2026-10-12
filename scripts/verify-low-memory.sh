@@ -28,4 +28,8 @@ npm run build
 npm run test:e2e
 VITE_PORTFOLIO_DEMO=1 VITE_BASE_PATH=/ VITE_API_BASE_URL=https://unavailable.example npm run build
 npm run test:e2e -- --config portfolio.playwright.config.ts
+VITE_AUTH_ENABLED=1 VITE_SUPABASE_URL=https://auth-fixture.supabase.co \
+    VITE_SUPABASE_PUBLISHABLE_KEY=fixture-public-key VITE_API_BASE_URL=/api \
+    VITE_PORTFOLIO_DEMO=1 VITE_BASE_PATH=/ npm run build
+npm run test:e2e -- --config auth.playwright.config.ts
 report_memory

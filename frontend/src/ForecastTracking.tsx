@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { LABELS, STATS, prettyDate, request, getDataMode } from "./api";
 import type { ForecastHistory, ForecastRefresh } from "./api";
+import { authEnabled } from "./auth";
 
 const value = (number: number | null | undefined) =>
   number == null ? "—" : number.toFixed(1);
@@ -95,7 +96,10 @@ export default function ForecastTracking() {
           <button
             className="today-button"
             disabled={
-              busy || refreshing || !history?.total || getDataMode() === "live"
+              busy ||
+              refreshing ||
+              !history?.total ||
+              (getDataMode() === "live" && !authEnabled)
             }
             onClick={refreshResults}
           >
@@ -109,14 +113,21 @@ export default function ForecastTracking() {
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
-      {getDataMode() !== "server" && (
+      {authEnabled && getDataMode() !== "replay" && (
         <p className="table-note">
-          History is kept in this browser, with up to 100 scenarios per mode.{" "}
-          {getDataMode() === "replay"
-            ? "These are retrospective replay results, not evidence of forecasts made before tipoff."
-            : "Live outcome refresh is not enabled in this public demo."}
+          Forecast history is private to your account and saved across devices.
+          Refresh results after games finish.
         </p>
       )}
+      {getDataMode() !== "server" &&
+        !(authEnabled && getDataMode() === "live") && (
+          <p className="table-note">
+            History is kept in this browser, with up to 100 scenarios per mode.{" "}
+            {getDataMode() === "replay"
+              ? "These are retrospective replay results, not evidence of forecasts made before tipoff."
+              : "Live outcome refresh is not enabled in this public demo."}
+          </p>
+        )}
       {busy && <p role="status">Loading saved forecasts…</p>}
       {history?.stub_mode && (
         <p className="synthetic-notice">

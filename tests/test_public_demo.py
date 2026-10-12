@@ -66,9 +66,12 @@ def test_public_prediction_budget_and_explicit_cors(public_app, monkeypatch):
         body = {"player_id": "201939", "game_id": "game"}
         for _ in range(10):
             assert client.post("/predictions", json=body).status_code == 200
-        limited = client.post("/predictions", json=body)
+        limited = client.post(
+            "/predictions", json=body, headers={"Origin": "https://courtside.example"}
+        )
         assert limited.status_code == 429
         assert limited.headers["retry-after"] == "60"
+        assert "Retry-After" in limited.headers["access-control-expose-headers"]
         # Exploration shares the same budget as saved predictions.
         assert client.post("/predictions/scenarios", json=body).status_code == 429
 

@@ -13,3 +13,18 @@ services:
         value: "0"
       - key: DEBUG
         value: "0"
+      - key: AUTH_ENABLED
+        value: "1"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: VITE_AUTH_ENABLED
+        value: "1"
+      - key: VITE_SUPABASE_URL
+        fromService:
+          name: courtside-api
+          type: web
+          envVarKey: SUPABASE_URL
+      - key: VITE_SUPABASE_PUBLISHABLE_KEY
+        sync: false

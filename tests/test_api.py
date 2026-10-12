@@ -47,7 +47,12 @@ def payload(**kwargs):
 
 
 def test_stub_full_flow_no_network(client):
-    assert client.get("/health").json() == {"status": "ok", "stub_mode": True}
+    assert client.get("/health").json() == {
+        "status": "ok",
+        "stub_mode": True,
+        "auth_enabled": False,
+        "backtests_enabled": True,
+    }
     games = client.get("/games").json()
     assert games["stub_mode"] is True
     assert games["games"][0]["game_id"] == "demo-game"

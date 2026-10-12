@@ -140,6 +140,28 @@ async function selectPlayer() {
 }
 
 describe("prediction workflow", () => {
+  it("presents the forecast limit with a clear title and recovery guidance", async () => {
+    predictionHandler = async () =>
+      new Response(JSON.stringify({ detail: "Too many requests" }), {
+        status: 429,
+        headers: { "Retry-After": "60" },
+      });
+    const user = await selectPlayer();
+    await user.click(
+      screen.getByRole("button", { name: /Generate prediction/ }),
+    );
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).getByText("Forecast limit reached").tagName).toBe(
+      "STRONG",
+    );
+    expect(alert.textContent).toContain("Please wait about 1 minute");
+    expect(alert.textContent).toContain(
+      "Your saved forecasts are still available",
+    );
+    expect(
+      within(alert).getByRole("button", { name: /Try again/ }),
+    ).toBeTruthy();
+  });
   it("shows validation errors for the selected method after training", async () => {
     predictionHandler = () =>
       json({

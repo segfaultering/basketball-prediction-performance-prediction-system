@@ -3,6 +3,9 @@ import ForecastTracking from "./ForecastTracking";
 import DailyForecasts from "./DailyForecasts";
 import MinutesExplorer from "./MinutesExplorer";
 import ModelAccuracy from "./ModelAccuracy";
+import AuthBoundary from "./AuthBoundary";
+import { authEnabled, supabase } from "./auth";
+import type { Session } from "@supabase/supabase-js";
 import ThemeToggle from "./ThemeToggle";
 import TeamBadge from "./TeamBadge";
 import Sidebar from "./Sidebar";
@@ -104,10 +107,26 @@ function ErrorNotice({
   message: string;
   retry?: () => void;
 }) {
+  const title = message.startsWith("Forecast limit reached.")
+    ? "Forecast limit reached"
+    : message.startsWith("Forecast service is busy.")
+      ? "Forecast service is busy"
+      : "";
   return (
     <div className="error-notice" role="alert">
       <Info size={17} />
-      <span>{message}</span>
+      <span>
+        {title ? (
+          <>
+            <strong>{title}</strong>
+            <span className="error-description">
+              {message.slice(title.length + 1).trim()}
+            </span>
+          </>
+        ) : (
+          message
+        )}
+      </span>
       {retry && (
         <button onClick={retry}>
           Try again <RefreshCw size={13} />
@@ -229,23 +248,34 @@ function StatCard({ stat, result }: { stat: Stat; result: Prediction | null }) {
 
 export default function App() {
   const [mode, setMode] = useState<DataMode>(getDataMode);
+  function changeMode(next: DataMode) {
+    setDataMode(next);
+    setMode(next);
+  }
   return (
-    <Dashboard
-      key={mode}
-      mode={mode}
-      changeMode={(next) => {
-        setDataMode(next);
-        setMode(next);
-      }}
-    />
+    <AuthBoundary
+      required={mode !== "replay"}
+      replay={() => changeMode("replay")}
+    >
+      {(session) => (
+        <Dashboard
+          key={`${mode}:${session?.user.id || "visitor"}`}
+          mode={mode}
+          session={session}
+          changeMode={changeMode}
+        />
+      )}
+    </AuthBoundary>
   );
 }
 
 function Dashboard({
   mode,
+  session,
   changeMode,
 }: {
   mode: DataMode;
+  session: Session | null;
   changeMode: (mode: DataMode) => void;
 }) {
   const [view, setView] = useState<View>("predictions");
@@ -260,7 +290,12 @@ function Dashboard({
   const [help, setHelp] = useState(false);
   const [date, setDate] = useState(initialDate);
   const [refresh, setRefresh] = useState(0);
-  const [health, setHealth] = useState<{ stub_mode: boolean } | null>(null);
+  const [health, setHealth] = useState<{
+    stub_mode: boolean;
+    backtests_enabled?: boolean;
+  } | null>(null);
+  const [accountError, setAccountError] = useState("");
+  const [signingOut, setSigningOut] = useState(false);
   const [healthError, setHealthError] = useState("");
   const [games, setGames] = useState<Game[]>([]);
   const [gameId, setGameId] = useState("");
@@ -311,7 +346,10 @@ function Dashboard({
     const controller = new AbortController();
     setHealthError("");
     setHealth(null);
-    request<{ stub_mode: boolean }>("/health", controller.signal)
+    request<{ stub_mode: boolean; backtests_enabled?: boolean }>(
+      "/health",
+      controller.signal,
+    )
       .then((data) => {
         if (!controller.signal.aborted) setHealth(data);
       })
@@ -474,7 +512,36 @@ function Dashboard({
             </h1>
           </div>
           <div className="header-right">
-            {portfolioEnabled && (
+            {authEnabled && session && (
+              <div className="account-controls">
+                <span title={session.user.email}>{session.user.email}</span>
+                <button
+                  className="outline-button"
+                  disabled={signingOut}
+                  onClick={async () => {
+                    if (!supabase) return;
+                    setSigningOut(true);
+                    setAccountError("");
+                    try {
+                      const { error } = await supabase.auth.signOut({
+                        scope: "local",
+                      });
+                      if (error)
+                        setAccountError(
+                          "Could not sign out. Please try again.",
+                        );
+                    } catch {
+                      setAccountError("Could not sign out. Please try again.");
+                    } finally {
+                      setSigningOut(false);
+                    }
+                  }}
+                >
+                  {signingOut ? "Signing out…" : "Sign out"}
+                </button>
+              </div>
+            )}
+            {(portfolioEnabled || authEnabled) && (
               <div
                 className="experience-switch"
                 role="group"
@@ -507,6 +574,7 @@ function Dashboard({
             </span>
           </div>
         </header>
+        {accountError && <ErrorNotice message={accountError} />}
         {mode === "replay" && (
           <div className="replay-notice">
             <span>
@@ -522,7 +590,9 @@ function Dashboard({
         {mode === "live" && (
           <p className="live-notice">
             {health
-              ? "Live NBA data can be delayed or unavailable. Your saved history stays in this browser."
+              ? authEnabled
+                ? "Live NBA data can be delayed or unavailable. Forecast history is saved privately to your account."
+                : "Live NBA data can be delayed or unavailable. Your saved history stays in this browser."
               : "Connecting to the live API. The free server may take about a minute to wake up; NBA replay stays available."}
           </p>
         )}
@@ -1028,13 +1098,18 @@ function Dashboard({
                     <div className="evaluation-section">
                       <h3>Backtest</h3>
                       <p>
-                        Evaluate past games. Career runs may take several
-                        minutes.
+                        {health?.backtests_enabled === false
+                          ? "Live backtests are unavailable on this hosted server. Switch to NBA replay to view prepared historical evaluations."
+                          : "Evaluate past games. Career runs may take several minutes."}
                       </p>
                       <button
                         className="outline-button"
                         onClick={evaluate}
-                        disabled={!player || backtestBusy}
+                        disabled={
+                          !player ||
+                          backtestBusy ||
+                          health?.backtests_enabled === false
+                        }
                       >
                         {backtestBusy ? (
                           <LoaderCircle className="spin" size={15} />

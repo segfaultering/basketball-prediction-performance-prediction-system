@@ -20,6 +20,9 @@ data/bpps/
 
 # Local environment configuration
 .env
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
 
 # React build and browser tests
 node_modules/

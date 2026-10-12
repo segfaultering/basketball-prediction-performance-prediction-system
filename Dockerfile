@@ -1,3 +1,4 @@
+FROM node:22-bookworm-slim AS node
 FROM python:3.14-slim-bookworm AS builder
 COPY --from=ghcr.io/astral-sh/uv:0.12.19 /uv /uvx /usr/local/bin/
 WORKDIR /app
@@ -8,15 +9,29 @@ RUN --mount=type=cache,id=courtside-uv,target=/root/.cache/uv uv sync --frozen -
 COPY src ./src
 RUN --mount=type=cache,id=courtside-uv,target=/root/.cache/uv uv sync --frozen --no-dev --no-editable
 
+# Depend on the completed Python builder so app builds remain sequential.
+FROM builder AS frontend-builder
+COPY --from=node /usr/local/ /usr/local/
+ARG VITE_AUTH_ENABLED=0
+ARG VITE_SUPABASE_URL=""
+ARG VITE_SUPABASE_PUBLISHABLE_KEY=""
+ENV NODE_OPTIONS=--max-old-space-size=1024
+COPY frontend/package.json frontend/package-lock.json ./frontend/
+RUN --mount=type=cache,id=courtside-npm,target=/root/.npm cd frontend && npm ci
+COPY frontend ./frontend
+RUN cd frontend && VITE_PORTFOLIO_DEMO=1 VITE_BASE_PATH=/ui/ VITE_API_BASE_URL="" npm run build
+
 FROM python:3.14-slim-bookworm
 WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
+COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PROJ_DIR=/tmp/bpps \
     PUBLIC_DEMO=1 \
     STUB_MODE=0 \
     DEBUG=0 \
+    FRONTEND_DIR=/app/frontend/dist \
     OMP_NUM_THREADS=1 \
     OPENBLAS_NUM_THREADS=1 \
     MKL_NUM_THREADS=1

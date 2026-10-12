@@ -1,3 +1,5 @@
+import { accessToken, authEnabled } from "./auth";
+
 export type Stat = "points" | "rebounds" | "assists" | "steals" | "blocks";
 export const STATS: Stat[] = [
   "points",
@@ -173,14 +175,21 @@ export async function request<T>(
     const { replayRequest } = await import("./portfolio");
     return replayRequest<T>(path, signal, body);
   }
-  if (mode === "live" && path.startsWith("/forecasts")) {
+  if (mode === "live" && !authEnabled && path.startsWith("/forecasts")) {
     const { historyRequest } = await import("./portfolio");
     return historyRequest<T>(mode, path);
   }
   const deadline = mode === "live" ? AbortSignal.timeout(90_000) : undefined;
   let response: Response;
+  const token =
+    path === "/health" || !authEnabled ? undefined : await accessToken();
+  signal?.throwIfAborted();
   try {
     response = await fetch(`${apiBase}${path}`, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(body ? { "Content-Type": "application/json" } : {}),
+      },
       signal: deadline
         ? signal
           ? AbortSignal.any([signal, deadline])
@@ -189,7 +198,6 @@ export async function request<T>(
       ...(body
         ? {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
           }
         : {}),
@@ -202,6 +210,26 @@ export async function request<T>(
     throw error;
   }
   if (!response.ok) {
+    if (response.status === 401)
+      throw new Error(
+        "Your session has expired. Please sign out and sign in again.",
+      );
+    const retryHeader = response.headers.get("Retry-After");
+    const retrySeconds = retryHeader ? Number(retryHeader) : NaN;
+    const wait =
+      Number.isFinite(retrySeconds) && retrySeconds > 0
+        ? retrySeconds >= 60
+          ? `about ${Math.ceil(retrySeconds / 60)} ${retrySeconds <= 60 ? "minute" : "minutes"}`
+          : `about ${Math.ceil(retrySeconds)} ${retrySeconds <= 1 ? "second" : "seconds"}`
+        : "a minute";
+    if (response.status === 429)
+      throw new Error(
+        `Forecast limit reached. Please wait ${wait} before trying again. Your saved forecasts are still available.`,
+      );
+    if (response.status === 503 && retryHeader)
+      throw new Error(
+        `Forecast service is busy. Another forecast is being prepared. Please try again in ${Number.isFinite(retrySeconds) && retrySeconds > 0 ? wait : "a few seconds"}.`,
+      );
     let detail: unknown;
     try {
       detail = (await response.json()).detail;
@@ -227,7 +255,7 @@ export async function request<T>(
     );
   }
   signal?.throwIfAborted();
-  if (mode === "live" && path === "/predictions") {
+  if (mode === "live" && !authEnabled && path === "/predictions") {
     const { saveVisitorForecast } = await import("./portfolio");
     return saveVisitorForecast(mode, body as PredictionInput, result) as T;
   }

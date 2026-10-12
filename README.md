@@ -11,6 +11,97 @@ uv sync
 uv run bpps --help
 ```
 
+## Supabase accounts on Render
+
+The Render Blueprint deploys **one service for the UI and API**, with
+email/password accounts managed by Supabase. Open `/ui/` after deployment.
+NBA replay is available without signing in. Live games, rosters, forecasts,
+minutes scenarios, and account history require a Supabase access JWT.
+
+1. Create a Supabase project. In Authentication, enable Email/password and
+   **Confirm email**. Configure a minimum password length of at least 8.
+   Use an **ES256 or RS256 asymmetric JWT signing key**; legacy HS256 tokens
+   are intentionally unsupported. If your project still uses its legacy JWT
+   secret, migrate its active signing key before using this deployment.
+2. Run [the forecast migration](supabase/migrations/202610120001_forecasts.sql)
+   once in Supabase's SQL editor, or apply it with Supabase's migration tools.
+   It creates durable forecast storage, enables row-level security, and allows
+   users to read only their own records. Only the trusted backend can insert
+   forecasts or attach outcomes; browser clients cannot edit accuracy records.
+3. Create a Render Blueprint from [render.yaml](render.yaml). Enter:
+
+   | Variable | Value |
+   | --- | --- |
+   | `SUPABASE_URL` | Your project origin, e.g. `https://PROJECT.supabase.co` |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Legacy `service_role` key; backend only |
+   | `VITE_SUPABASE_PUBLISHABLE_KEY` | Publishable (`sb_publishable_...`) or legacy `anon` key |
+   | `CORS_ORIGINS` | `[]` for the bundled, same-origin UI |
+
+   The Blueprint sets `AUTH_ENABLED=1`, `VITE_AUTH_ENABLED=1`, `PUBLIC_DEMO=1`,
+   `STUB_MODE=0`, and `DEBUG=0`, and copies `SUPABASE_URL` into the frontend's
+   `VITE_SUPABASE_URL` build argument. Render makes service environment variables
+   available as Docker build arguments. The Dockerfile only consumes the public
+   frontend configuration during its build. Never put the service-role key in
+   a `VITE_*` variable, build argument, Git-tracked file, or browser.
+4. Once Render provides the hostname, set Supabase Authentication's **Site URL**
+   to `https://YOUR-SERVICE.onrender.com/ui/` and add that exact URL to its
+   **Redirect URLs**. Email confirmation and password-reset links return there.
+   Configure [custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp)
+   for production email delivery; Supabase's default email service is restricted
+   and unsuitable for general public signup.
+5. Test creating an account, confirming email, signing in, generating a live
+   forecast, opening history on another device, refreshing final outcomes,
+   password reset, and signing out. Use two accounts to confirm their histories
+   are separate. NBA endpoints can still time out independently of sign-in.
+
+The browser uses the official Supabase client for session persistence and token
+refresh. The API independently verifies JWT signatures, expiry, issuance time,
+issuer, audience, registered-user role, and UUID subject against the project's
+JWKS endpoint; merely decoding a token does not authenticate a request. Public
+keys are cached for five minutes and unknown key IDs trigger a key refresh.
+Signing-key revocations can take time to propagate through upstream caches.
+Signing out clears the browser session; an already issued access token remains
+valid until expiry. Set an appropriate access-token lifetime in Supabase.
+
+Each live forecast is archived in Supabase under the verified user's ID. Reads
+and outcome updates are also scoped by user and source. Existing local SQLite
+and browser histories are not automatically uploaded to accounts. Replay
+scenarios stay in the browser, separate from account forecasts. Storage failures
+return 503 instead of claiming a forecast was saved. Account deletion cascades
+to its forecast records in Supabase.
+
+The Render service still uses one worker, one active expensive operation, and
+ten attempts per minute shared across the process. Authentication also applies
+these bounds when `PUBLIC_DEMO=0`. Hosted live backtests stay disabled with
+`PUBLIC_DEMO=1`; prepared replay backtests remain available. History and manual
+outcome refresh are enabled for signed-in users. Refresh shares the expensive
+operation budget. Supabase stores history across Render restarts; NBA/model
+caches under `/tmp/bpps` remain disposable. Readiness checks local cache access,
+not upstream Supabase or NBA availability.
+
+For local account development, set `AUTH_ENABLED=1`, `SUPABASE_URL`, and
+`SUPABASE_SERVICE_ROLE_KEY` in the root `.env`, with `DEBUG=0`. In
+`frontend/.env.local`, set `VITE_AUTH_ENABLED=1`, `VITE_SUPABASE_URL`, and
+`VITE_SUPABASE_PUBLISHABLE_KEY`; leave `VITE_API_BASE_URL` empty to use Vite's
+proxy. Add `http://127.0.0.1:5173/ui/` to Supabase's allowed redirect URLs.
+Start `uv run uvicorn bpps.api:app --reload` at the repository root and
+`npm run dev` in `frontend/`. The `start.sh` launcher continues to run the
+anonymous portfolio configuration. Restart the API and rebuild/restart the
+frontend after configuration changes.
+With auth disabled, the existing local SQLite and anonymous portfolio modes
+continue to work.
+
+Setup references: [Supabase signing keys](https://supabase.com/docs/guides/auth/signing-keys),
+[row-level security](https://supabase.com/docs/guides/database/postgres/row-level-security),
+[email/password authentication](https://supabase.com/docs/guides/auth/passwords),
+and [Render Docker builds](https://render.com/docs/docker).
+
+CI also runs [the schema permission checks](tests/supabase_schema.sql) against
+a disposable PostgreSQL instance capped at 256 MB. It verifies user isolation,
+denied anonymous reads and browser writes, snapshot immutability, and account
+deletion. This test simulates Supabase's auth roles and `auth.uid()`; the final
+two-account smoke test above still needs your configured Supabase project.
+
 ## Portfolio demo
 
 After generating a prediction, select **Explore minutes** to compare playing-time
@@ -42,7 +133,7 @@ never silently substitutes replay or synthetic predictions. Switch back to
 **NBA replay** whenever the API is unavailable or there are no upcoming games.
 The replay snapshot never refreshes itself from live NBA endpoints.
 
-Portfolio history belongs to the visitor's browser, with separate replay and
+With authentication disabled, portfolio history belongs to the visitor's browser, with separate replay and
 live records and a maximum of 100 scenarios per mode. Replay **Refresh results**
 attaches bundled actual outcomes. Live outcome refresh is deferred; live records
 stay pending. Clearing browser storage removes history. When storage is blocked,
@@ -95,7 +186,7 @@ For live mode during this preview, start the API from the repository root:
 PUBLIC_DEMO=1 STUB_MODE=0 DEBUG=0 CORS_ORIGINS='["http://localhost:4173","http://127.0.0.1:4173"]' uv run uvicorn bpps.api:app
 ```
 
-The public configuration allows one active prediction and ten prediction
+The anonymous public configuration allows one active prediction and ten prediction
 attempts per minute across the single API process. It rejects additional work
 with retryable 503/429 responses. Shared forecast history and live backtests
 are disabled in this deployment; the prepared replay demonstrates
@@ -104,9 +195,12 @@ evaluation without public requests starting full-career backtests.
 
 ### Free-tier deployment
 
-Use a static frontend on **Cloudflare Pages** and the Python backend on **Render**:
+The authenticated deployment above serves everything on Render. For the older
+anonymous portfolio arrangement, use a static frontend on **Cloudflare Pages**
+and the Python backend on **Render**:
 
 1. On Render, create a Blueprint from this repository using [render.yaml](render.yaml).
+   Set `AUTH_ENABLED=0` and `VITE_AUTH_ENABLED=0` for this anonymous setup.
    It builds [Dockerfile](Dockerfile), runs as a non-root user with one worker,
    and checks `/ready`. Enter `CORS_ORIGINS` as a JSON array containing your exact
    Pages origin, for example `["https://courtside.pages.dev"]`.
@@ -166,8 +260,8 @@ docker run --rm --memory=1g --memory-swap=1g --cpus=2 -p 8000:8000 \
   -e 'CORS_ORIGINS=["http://localhost:4173","http://127.0.0.1:4173"]' courtside-api
 ```
 
-Visit `http://localhost:8000/ready`. This image serves the public API; the
-standalone frontend is built separately as described above. Stop the API before
+Visit `http://localhost:8000/ready`. This image serves the API and the bundled
+UI at `/ui/`; a standalone frontend can also be built separately. Stop the API before
 running the verification container:
 
 ```bash
@@ -179,7 +273,10 @@ The verification image installs the locked Python/Node dependencies and Chromium
 without using host caches. It runs all required Python checks, Python tests,
 real replay regeneration (including training and backtesting), the bundled
 research notebook using real CSV history, frontend checks,
-unit tests, both builds, and desktop/mobile browser suites. Every stage shares a
+unit tests, the local, replay, and authenticated builds, and desktop/mobile
+browser suites. The authentication browser suite uses the real Supabase SDK
+against intercepted responses; real token signatures and user scoping are
+checked by the Python tests. Every stage shares a
 **2 GB container limit with no swap allowance**. It reports the cgroup peak
 memory, which includes child processes and charged file cache. CI repeats this
 constrained run. This verifies the bundled workloads; unbounded user datasets,
@@ -273,6 +370,7 @@ Backtesting uses expanding historical windows, retraining and selecting only on 
 ## Checks
 
 ```bash
+uv sync --frozen --group research
 uv run pytest -q
 uv run pyrefly check
 uv run ruff check src tests

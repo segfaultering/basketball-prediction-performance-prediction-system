@@ -12,7 +12,7 @@ jobs:
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.12.19"
-      - run: uv sync --frozen
+      - run: uv sync --frozen --group research
       - run: uv run pyrefly check
       - run: uv run ruff check src tests
       - run: uv run ruff format --check src tests
@@ -46,6 +46,17 @@ jobs:
           VITE_API_BASE_URL: https://unavailable.example
       - run: npx playwright test --config portfolio.playwright.config.ts
         working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+        env:
+          VITE_AUTH_ENABLED: "1"
+          VITE_SUPABASE_URL: https://auth-fixture.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: fixture-public-key
+          VITE_PORTFOLIO_DEMO: "1"
+          VITE_BASE_PATH: /
+          VITE_API_BASE_URL: /api
+      - run: npx playwright test --config auth.playwright.config.ts
+        working-directory: frontend
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -67,3 +78,23 @@ jobs:
       - run: docker stop courtside-api
       - run: docker build -f Dockerfile.verify -t courtside-verify .
       - run: docker run --rm --memory=2g --memory-swap=2g --cpus=2 --shm-size=256m courtside-verify
+  supabase-schema:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: test-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --memory=256m --memory-swap=256m
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          schema_container="${{ job.services.postgres.id }}"
+          docker cp supabase "$schema_container:/tmp/supabase"
+          docker cp tests "$schema_container:/tmp/tests"
+          docker exec "$schema_container" psql -U postgres -v ON_ERROR_STOP=1 -f /tmp/tests/supabase_schema.sql
