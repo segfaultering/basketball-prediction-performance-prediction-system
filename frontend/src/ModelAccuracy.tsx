@@ -1,5 +1,6 @@
 import { LABELS } from "./api";
 import type { Prediction } from "./api";
+import AccuracyGuide from "./AccuracyGuide";
 
 export default function ModelAccuracy({ result }: { result: Prediction }) {
   const evaluation = result.model.evaluation;
@@ -48,19 +49,18 @@ export default function ModelAccuracy({ result }: { result: Prediction }) {
                       ? "—"
                       : model.baseline_mae.toFixed(2)}
                   </td>
-                  <td>{model?.active ? "Ridge correction" : "Baseline"}</td>
+                  <td>{model?.active ? "Learned adjustment" : "Baseline"}</td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+      <AccuracyGuide />
       <p className="table-note">
-        MAE is the average absolute miss in each statistic’s units; lower is
-        better. For example, a points MAE of 7 means a miss of about 7 points
-        per game on average. These games select whether to use corrections, so
-        this is validation evidence, not an untouched test set or guaranteed
-        future accuracy. Steals and blocks do not have trained corrections.
+        These games select whether to use corrections, so this is validation
+        evidence, not an untouched test set or guaranteed future accuracy.
+        Steals and blocks do not have trained corrections.
       </p>
     </section>
   );

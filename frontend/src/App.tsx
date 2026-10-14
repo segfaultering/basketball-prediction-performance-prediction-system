@@ -3,6 +3,7 @@ import ForecastTracking from "./ForecastTracking";
 import DailyForecasts from "./DailyForecasts";
 import MinutesExplorer from "./MinutesExplorer";
 import ModelAccuracy from "./ModelAccuracy";
+import AccuracyGuide from "./AccuracyGuide";
 import ThemeToggle from "./ThemeToggle";
 import TeamBadge from "./TeamBadge";
 import Sidebar from "./Sidebar";
@@ -786,7 +787,10 @@ function Dashboard({
                       </div>
                     </>
                   ) : (
-                    <p>Recent average.</p>
+                    <p>
+                      Estimated from recent playing time. Turn this on to try
+                      your own minutes estimate.
+                    </p>
                   )}
                 </div>
                 {mode !== "replay" && (
@@ -803,7 +807,11 @@ function Dashboard({
                         onChange={(e) => setSeasons(e.target.value)}
                       />
                     </label>
-                    <p>Example: 2024-25, 2025-26.</p>
+                    <p>
+                      Leave blank to use the player’s full career. Enter up to
+                      five seasons, such as 2024-25, 2025-26, to limit
+                      prediction and backtest history.
+                    </p>
                   </details>
                 )}
                 <button
@@ -967,10 +975,12 @@ function Dashboard({
                     <div className="insights-intro">
                       <BarChart3 size={22} />
                       <div>
-                        <h3>Validation</h3>
+                        <h3>Validation: choosing the forecast method</h3>
                         <p>
-                          Corrections must beat the baseline on validation
-                          games.
+                          The baseline is a starting estimate from past stats
+                          and expected minutes. A learned adjustment
+                          (correction) is used only when it lowers the average
+                          miss on later historical games.
                         </p>
                       </div>
                     </div>
@@ -1031,8 +1041,12 @@ function Dashboard({
                             </tbody>
                           </table>
                         </div>
+                        <AccuracyGuide />
                         <p className="table-note">
-                          MAE: average absolute error. Lower is better.
+                          These games help choose the method, so their errors
+                          are not an independent test of future accuracy.
+                          Points, rebounds, and assists can use corrections;
+                          steals and blocks use the baseline.
                         </p>
                       </>
                     ) : (
@@ -1042,11 +1056,23 @@ function Dashboard({
                       </p>
                     )}
                     <div className="evaluation-section">
-                      <h3>Backtest</h3>
+                      <h3>Backtest: test predictions on past games</h3>
                       <p>
-                        Evaluate past games. Career runs may take several
-                        minutes.
+                        For each past game, rebuild a forecast using only games
+                        played before it, then compare with the actual stats.
+                        This shows how the forecasting process would have
+                        performed as the player’s history grew.
                       </p>
+                      <p>
+                        {mode === "replay"
+                          ? "NBA replay loads a prepared backtest for the selected player."
+                          : "Uses the selected player and history seasons, with playing time estimated from earlier games. Your minutes override does not apply. Full-career runs may take several minutes."}
+                      </p>
+                      {!player && (
+                        <p className="table-note">
+                          Select a game and player to enable the backtest.
+                        </p>
+                      )}
                       <button
                         className="outline-button"
                         onClick={evaluate}
@@ -1099,6 +1125,11 @@ function Dashboard({
                               </tbody>
                             </table>
                           </div>
+                          <AccuracyGuide extended />
+                          <p className="table-note">
+                            Historical results help assess the forecast, but do
+                            not guarantee the same accuracy in future games.
+                          </p>
                         </>
                       )}
                     </div>
@@ -1106,7 +1137,11 @@ function Dashboard({
                 )}
                 <div className="forecast-note">
                   <Info size={16} />
-                  <p>Assumes participation. Ranges are uncalibrated.</p>
+                  <p>
+                    Assumes the player plays. The 80% range shows an approximate
+                    spread around the estimate; it has not been checked to
+                    contain actual results 80% of the time.
+                  </p>
                 </div>
                 {result?.stub_mode && (
                   <div className="synthetic-notice">
@@ -1161,36 +1196,64 @@ function Dashboard({
         <div className="help-step">
           <span>01</span>
           <div>
-            <h3>Baseline</h3>
+            <h3>Baseline: the starting estimate</h3>
             <p>
-              Blend historical and current-season production per minute, then
-              multiply by expected playing time.
+              Use past stats per minute and expected playing time to make a
+              starting estimate. More expected minutes usually means higher
+              projected stats.
             </p>
           </div>
         </div>
         <div className="help-step">
           <span>02</span>
           <div>
-            <h3>Correction</h3>
+            <h3>Correction: a learned adjustment</h3>
             <p>
-              A player-specific linear model learns a correction using recent
-              production, minutes, home court, and rest.
+              Learn from the player’s history to adjust the baseline using
+              recent stats, minutes, home court, and rest.
             </p>
           </div>
         </div>
         <div className="help-step">
           <span>03</span>
           <div>
-            <h3>Validation</h3>
+            <h3>Validation: choose which method to use</h3>
             <p>
               Only use a correction when it lowers error on later historical
               games. Otherwise, keep the baseline.
             </p>
           </div>
         </div>
+        <div className="help-step">
+          <span>04</span>
+          <div>
+            <h3>Backtest: check against past results</h3>
+            <p>
+              Rebuild forecasts for past games using only earlier history, then
+              compare them with what happened. Open Model insights to run a
+              backtest. This checks the process across past games; validation
+              chooses whether to use a correction.
+            </p>
+          </div>
+        </div>
+        <div className="help-step">
+          <span>05</span>
+          <div>
+            <h3>Forecast history: follow saved predictions</h3>
+            <p>
+              Compare saved predictions with final stats when results are
+              available. NBA replay uses completed games and forecasts rebuilt
+              afterward from earlier data. Those comparisons do not show
+              predictions actually made before tipoff.
+            </p>
+          </div>
+        </div>
         <div className="help-caveat">
           <Info size={17} />
-          <p>Ranges are approximate, not calibrated intervals.</p>
+          <p>
+            The projected value is an estimate, not an exact result. The 80%
+            range shows possible variation, but is not a verified 80% chance.
+          </p>
         </div>
         <button className="predict-button" onClick={() => setHelp(false)}>
           Done <ArrowRight size={17} />

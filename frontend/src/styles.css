@@ -1367,6 +1367,8 @@ td {
   padding: 38px;
   max-width: 520px;
   width: calc(100% - 30px);
+  max-height: calc(100dvh - 30px);
+  overflow-y: auto;
   color: var(--ink);
 }
 .help-dialog::backdrop {

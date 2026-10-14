@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { LABELS, STATS, prettyDate, request, getDataMode } from "./api";
 import type { ForecastHistory, ForecastRefresh } from "./api";
+import AccuracyGuide from "./AccuracyGuide";
 
 const value = (number: number | null | undefined) =>
   number == null ? "—" : number.toFixed(1);
@@ -74,11 +75,11 @@ export default function ForecastTracking() {
     <section className="tracking-section" aria-label="Saved forecasts">
       <div className="section-heading">
         <div>
-          <h2>Results</h2>
+          <h2>Forecast history</h2>
           <p>
             {getDataMode() === "replay"
-              ? "Your replay scenarios and historical outcomes."
-              : "Saved forecasts and final stats."}
+              ? "Compare your saved replay scenarios with what happened in those games."
+              : "Compare saved predictions with final stats to see how close they were."}
           </p>
         </div>
         <div className="tracking-actions">
@@ -130,10 +131,11 @@ export default function ForecastTracking() {
               <strong>{history.summary.tracked_games}</strong> tracked games
             </span>
             <span>
-              <strong>{history.summary.evaluated_games}</strong> evaluated
+              <strong>{history.summary.evaluated_games}</strong> compared with
+              final stats
             </span>
             <span>
-              <strong>{history.summary.pending_games}</strong> pending
+              <strong>{history.summary.pending_games}</strong> awaiting results
             </span>
             <span>
               <strong>{history.summary.did_not_play_games}</strong> did not play
@@ -187,7 +189,13 @@ export default function ForecastTracking() {
               </table>
             </div>
           ) : (
-            <p className="table-note">No results yet.</p>
+            <p className="table-note">
+              No completed comparisons yet. Accuracy appears once saved
+              forecasts have matching final stats.
+            </p>
+          )}
+          {history.summary.evaluated_games > 0 && (
+            <AccuracyGuide extended coverage />
           )}
           {!history.total && (
             <div className="schedule-empty">
