@@ -5,15 +5,15 @@
   color-scheme: light;
   font-synthesis: none;
   font-size: 16px;
-  --orange: #dc6b3d;
-  --ink: #263238;
-  --text-strong: #354638;
-  --page: #f6f5f0;
-  --surface: #fbfaf7;
-  --surface-raised: #fffdf9;
-  --surface-soft: #f3f3ed;
-  --surface-hover: #f1efe8;
-  --surface-selected: #fcf5ec;
+  --orange: #c95123;
+  --ink: #292824;
+  --text-strong: #272722;
+  --page: #f2eee6;
+  --surface: #fffcf7;
+  --surface-raised: #fffefa;
+  --surface-soft: #f3efe7;
+  --surface-hover: #eee7dc;
+  --surface-selected: #fff0df;
   --hero: #ebece2;
   --accent-surface: #f6e8de;
   --featured-surface: #fcf4e9;
@@ -41,8 +41,8 @@
   --focus: #eaa887;
   --court: #a7b399;
   --backdrop: #27352baa;
-  --muted: #667159;
-  --line: #e6e5df;
+  --muted: #70685d;
+  --line: #ded7cb;
   --on-accent: #fff;
   --status-dot: #a1a398;
   --status-online: #6c9774;
@@ -50,15 +50,15 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
   --orange: #f09263;
-  --ink: #e4eae3;
-  --muted: #abb6a6;
-  --line: #344238;
-  --text-strong: #e0e9d9;
-  --page: #121a17;
-  --surface: #1b2520;
-  --surface-raised: #24312a;
-  --surface-soft: #26342b;
-  --surface-hover: #2c3b30;
+  --ink: #eee9df;
+  --muted: #bdb4a6;
+  --line: #423e37;
+  --text-strong: #f5eee1;
+  --page: #181916;
+  --surface: #22231f;
+  --surface-raised: #2c2d27;
+  --surface-soft: #303129;
+  --surface-hover: #38392f;
   --surface-selected: #3c2d23;
   --hero: #26332a;
   --accent-surface: #3c2c22;
@@ -2437,5 +2437,191 @@ table {
   }
   .minutes-explorer svg text {
     font-size: 16px;
+  }
+}
+
+/* Court markings and scouting notes give the workspace its basketball identity. */
+.courtside-banner {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  overflow: hidden;
+  position: relative;
+  background: #242922;
+  color: #fff7e9;
+  border-radius: 12px;
+  border: 1px solid #464c3e;
+  margin-bottom: 24px;
+}
+.courtside-copy {
+  padding: 34px 38px;
+  position: relative;
+  z-index: 1;
+}
+.courtside-kicker,
+.scouting-label,
+.court-caption {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.courtside-kicker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #efba85;
+}
+.courtside-kicker::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  background: #ec8a49;
+  border-radius: 50%;
+}
+.courtside-copy h2 {
+  margin: 20px 0 14px;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(32px, 3.7vw, 52px);
+  font-weight: 700;
+  letter-spacing: -2px;
+  line-height: 1.05;
+}
+.courtside-copy h2 span {
+  color: #efab72;
+}
+.courtside-copy > p {
+  max-width: 360px;
+  color: #c9c9b8;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.courtside-matchup {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #505344;
+}
+.scouting-label {
+  color: #c9c9b8;
+  font-size: 10px;
+  letter-spacing: 1.2px;
+}
+.scouting-teams {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: "Space Grotesk", sans-serif;
+}
+.scouting-teams > span:not(.team-badge) {
+  color: #c9c9b8;
+  font-size: 12px;
+}
+.scouting-teams .team-badge.small {
+  background: #fff7e9;
+  width: 28px;
+  height: 28px;
+  padding: 3px;
+  border-radius: 50%;
+}
+.scouting-placeholder {
+  color: #ddd4c4;
+  font-size: 13px;
+}
+.court-art {
+  display: grid;
+  align-content: center;
+  position: relative;
+  padding: 18px 28px 34px 0;
+  background: linear-gradient(110deg, #242922, #414734);
+}
+.court-art svg {
+  width: 100%;
+  max-height: 300px;
+  color: #b1b799;
+  transform: rotate(-12deg) scale(1.08);
+  opacity: 0.65;
+}
+.court-grain {
+  opacity: 0.16;
+}
+.court-play,
+.court-rim {
+  stroke: #ffae6a;
+}
+.court-caption {
+  position: absolute;
+  bottom: 22px;
+  right: 30px;
+  color: #d8d9c1;
+  font-size: 9px;
+}
+.step-number {
+  border-radius: 4px;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+}
+.game-card,
+.stat-card {
+  border-radius: 6px;
+  border-top: 3px solid var(--line-strong);
+}
+.game-card.selected,
+.stat-card.featured {
+  border-top: 3px solid var(--orange);
+}
+.stat-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.stat-abbreviation {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-family: "Space Grotesk", sans-serif;
+}
+@media (max-width: 760px) {
+  .courtside-copy {
+    padding: 26px;
+  }
+  .courtside-banner {
+    grid-template-columns: 1.4fr 1fr;
+  }
+  .court-art {
+    padding-right: 12px;
+  }
+  .court-art svg {
+    transform: rotate(-12deg) scale(1.5);
+  }
+  .court-caption {
+    display: none;
+  }
+}
+@media (max-width: 520px) {
+  .courtside-banner {
+    grid-template-columns: 1fr;
+  }
+  .courtside-copy {
+    padding: 24px;
+  }
+  .courtside-kicker {
+    font-size: 9px;
+    letter-spacing: 1.4px;
+  }
+  .courtside-copy h2 {
+    font-size: 38px;
+  }
+  .court-art {
+    position: absolute;
+    width: 230px;
+    right: -100px;
+    top: -20px;
+    opacity: 0.16;
+    pointer-events: none;
+  }
+  .courtside-copy > p {
+    max-width: 240px;
   }
 }
