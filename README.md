@@ -6,6 +6,8 @@ Courtside predicts a player's points, rebounds, assists, steals, and blocks for 
 scheduled game. It combines an interactive dashboard, a Python API, and a CLI,
 with support for live NBA data and offline experiments.
 
+![Courtside Scouting Room showing Cade Cunningham's forecast and interactive minutes scenarios](assets/logo.PNG)
+
 ## Why this project?
 
 A prediction is more useful when you understand its assumptions. Courtside lets
@@ -29,6 +31,24 @@ historical data to evaluation—into one basketball analytics project.
   The local app uses SQLite; the portfolio demo uses browser storage.
 - **Offline experiments:** use bundled NBA replay data, synthetic fixtures, or
   your own CSV history. The dashboard supports mobile and light/dark themes.
+
+<details>
+<summary>View the daily forecasts dashboard</summary>
+
+Select players across matchups and compare their projected box scores.
+
+![Daily forecasts dashboard with player selection and a table of projected minutes, points, rebounds, assists, steals, and blocks](assets/daily_forecasts.PNG)
+
+</details>
+
+<details>
+<summary>View model insights and backtesting</summary>
+
+Compare historical prediction errors with the baseline for each statistic.
+
+![Model insights showing chronological backtest results with prediction MAE, baseline MAE, and RMSE](assets/testing.PNG)
+
+</details>
 
 ## How it works
 
