@@ -1,6 +1,78 @@
 import { navigate } from "./helpers";
 import { expect, test } from "@playwright/test";
 
+test("the scouting room explores real scenarios and handles unavailable players without saving forecasts", async ({
+  page,
+}) => {
+  await page.route("https://unavailable.example/**", (route) => route.abort());
+  await page.goto("/");
+  const spotlight = page.getByRole("region", {
+    name: "Interactive scouting report",
+  });
+  const report = spotlight.getByRole("region", {
+    name: "Stephen Curry scouting report",
+    exact: true,
+  });
+  await expect(report).toBeVisible();
+  const minutes = report.getByRole("slider", {
+    name: "Your playing-time scenario",
+  });
+  await minutes.fill("0");
+  await expect(
+    report.getByRole("img", { name: /Points projection/ }),
+  ).toHaveAttribute("aria-label", /at 0 minutes: 0.0/);
+  await minutes.fill("48");
+  await expect(
+    report.getByRole("img", { name: /Points projection/ }),
+  ).toHaveAttribute("aria-label", /at 48 minutes:/);
+  await report.getByRole("button", { name: "Assists", exact: true }).click();
+  await expect(
+    report.getByRole("img", { name: /Assists projection/ }),
+  ).toBeVisible();
+  await report
+    .getByRole("button", { name: "Reveal actual result", exact: true })
+    .click();
+  await expect(report.getByText(/^Actual playing time:/)).toContainText(
+    "Actual playing time: 33.0 minutes",
+  );
+  await expect(report.getByText("32.0 actual", { exact: true })).toBeVisible();
+  await report.getByRole("button", { name: /Recent estimate/ }).click();
+  await expect(minutes).toHaveValue("33");
+  await spotlight.getByRole("button", { name: /T.J. McConnell/ }).click();
+  const benchReport = spotlight.getByRole("region", {
+    name: "T.J. McConnell scouting report",
+    exact: true,
+  });
+  await expect(
+    benchReport.getByRole("button", {
+      name: "Reveal actual result",
+      exact: true,
+    }),
+  ).toHaveAttribute("aria-expanded", "false");
+  await benchReport
+    .getByRole("button", { name: "Reveal actual result", exact: true })
+    .click();
+  await expect(benchReport.getByText(/^Did not play\./)).toBeVisible();
+  await expect(benchReport.getByText("DNP", { exact: true })).toHaveCount(5);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem("courtside:replay:history:v1"),
+    ),
+  ).toBeNull();
+  await navigate(page, "Forecast history");
+  await expect(
+    page.getByText(
+      "No saved forecasts yet. Generate a prediction to start tracking.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+});
+
 test("the portfolio replay works with no API and keeps historical results labeled", async ({
   page,
 }) => {

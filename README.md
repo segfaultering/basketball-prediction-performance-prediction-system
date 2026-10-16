@@ -27,6 +27,12 @@ six featured players across DET–GSW, IND–ATL, and ORL–MIL. The replay uses
 NBA game logs, not synthetic fixtures. Its date is the NBA boxscore game date;
 it is not a claim that all three games tipped off on that UTC date.
 
+The opening **Scouting Room** is an interactive report: select a featured player,
+adjust playing time, switch between points, rebounds, and assists, and reveal
+the actual box score. Its previews do not create saved forecasts. Scenarios
+hold per-minute rates fixed; a did-not-play result is labeled and excluded from
+accuracy scoring. The full forecast workspace sits directly below the report.
+
 The browser loads a bundled snapshot, so predictions, whole-minute scenarios
 from 0–48, the daily board, prepared backtests, and outcome comparisons work
 without a running API. Models and features use only games before the replay

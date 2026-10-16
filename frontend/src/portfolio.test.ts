@@ -2,6 +2,7 @@ import rawSnapshot from "../public/replay/snapshot.json?raw";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { request, setDataMode } from "./api";
 import type { ForecastHistory, Prediction } from "./api";
+import { loadReplayReports } from "./portfolio";
 
 const snapshot = JSON.parse(rawSnapshot);
 beforeEach(() => {
@@ -87,6 +88,38 @@ it("loads every minutes scenario without creating visitor history", async () => 
   expect(result.scenarios[48].stats).toEqual(
     snapshot.predictions["201939"].scenarios["48"].stats,
   );
+  expect((await request<ForecastHistory>("/forecasts")).total).toBe(0);
+});
+
+it("keeps scouting previews isolated from saved forecasts and the prepared snapshot", async () => {
+  const reports = await loadReplayReports(new AbortController().signal);
+  expect(reports).toHaveLength(6);
+  const curry = reports.find(
+    (report) => report.prediction.player_id === "201939",
+  )!;
+  expect(curry.player.PLAYER).toBe("Stephen Curry");
+  expect(curry.player.team).toBe("GSW");
+  expect(curry.outcome.stats.points).toBe(32);
+  expect(curry.scenarios).toHaveLength(49);
+  expect(
+    reports.find((report) => report.player.PLAYER === "T.J. McConnell")?.outcome
+      .minutes,
+  ).toBe(0);
+  curry.prediction.stats.points.prediction = 999;
+  curry.scenarios[0].stats.points.prediction = 999;
+  curry.outcome.stats.points = 999;
+  const again = await loadReplayReports(new AbortController().signal);
+  const untouched = again.find(
+    (report) => report.prediction.player_id === "201939",
+  )!;
+  expect(untouched.prediction.stats.points.prediction).toBe(
+    snapshot.predictions["201939"].default.stats.points.prediction,
+  );
+  expect(
+    untouched.scenarios.find((item) => item.projected_minutes === 0)?.stats
+      .points.prediction,
+  ).toBe(0);
+  expect(untouched.outcome.stats.points).toBe(32);
   expect((await request<ForecastHistory>("/forecasts")).total).toBe(0);
 });
 

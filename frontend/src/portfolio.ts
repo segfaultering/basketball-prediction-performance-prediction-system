@@ -7,6 +7,7 @@ import {
 import type {
   Backtest,
   Game,
+  MinuteScenario,
   Player,
   Prediction,
   PredictionInput,
@@ -30,6 +31,41 @@ interface Snapshot {
   >;
   backtests: Record<string, Backtest>;
   outcomes: Record<string, NonNullable<TrackedForecast["outcome"]>>;
+}
+
+export interface ReplayReport {
+  player: Player;
+  prediction: Prediction;
+  scenarios: MinuteScenario[];
+  outcome: NonNullable<TrackedForecast["outcome"]>;
+}
+
+// A read-only preview never creates a saved forecast or changes its inputs.
+export async function loadReplayReports(
+  signal: AbortSignal,
+): Promise<ReplayReport[]> {
+  signal.throwIfAborted();
+  const data = await snapshot();
+  signal.throwIfAborted();
+  const players = data.games.flatMap((game) => [
+    ...(data.rosters[game.home_team_id] ?? []),
+    ...(data.rosters[game.away_team_id] ?? []),
+  ]);
+  return structuredClone(
+    players.flatMap((player) => {
+      const prepared = data.predictions[String(player.PLAYER_ID)];
+      const outcome = data.outcomes[String(player.PLAYER_ID)];
+      if (!prepared || !outcome) return [];
+      return [
+        {
+          player: { ...player, team: prepared.default.team },
+          prediction: prepared.default,
+          scenarios: Object.values(prepared.scenarios),
+          outcome,
+        },
+      ];
+    }),
+  );
 }
 let snapshotPromise: Promise<Snapshot> | undefined;
 async function snapshot(): Promise<Snapshot> {

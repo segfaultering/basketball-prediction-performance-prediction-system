@@ -15,6 +15,7 @@ import ScheduleSection from "./ScheduleSection";
 import PlayerSelection from "./PlayerSelection";
 import ForecastPanel from "./ForecastPanel";
 import HelpDialog from "./HelpDialog";
+import ReplaySpotlight from "./ReplaySpotlight";
 
 export default function App() {
   const [mode, setMode] = useState<DataMode>(getDataMode);
@@ -109,8 +110,12 @@ function Dashboard({
             </span>
           </div>
         </header>
-        <CourtsideBanner game={game} />
-        {mode === "replay" && (
+        {mode === "replay" && view === "predictions" ? (
+          <ReplaySpotlight />
+        ) : (
+          <CourtsideBanner game={game} />
+        )}
+        {mode === "replay" && view !== "predictions" && (
           <div className="replay-notice">
             <span>
               <strong>March 8, 2025 replay</strong> · Real NBA history, six
@@ -142,6 +147,22 @@ function Dashboard({
           <ForecastTracking />
         ) : (
           <>
+            {mode === "replay" && view === "predictions" && (
+              <div
+                className="forecast-workspace-heading"
+                id="forecast-workspace"
+                tabIndex={-1}
+              >
+                <div>
+                  <span>KEEP EXPLORING</span>
+                  <h2>Your forecast workspace</h2>
+                </div>
+                <p>
+                  Choose a matchup, make a projection, and inspect the model
+                  behind it.
+                </p>
+              </div>
+            )}
             <ScheduleSection workflow={workflow} mode={mode} />
             <div className="workspace-grid">
               <PlayerSelection workflow={workflow} mode={mode} />
