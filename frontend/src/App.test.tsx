@@ -1,3 +1,4 @@
+import { jsonResponse as json, makePrediction } from "./testFixtures";
 import {
   act,
   cleanup,
@@ -10,34 +11,12 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { STATS, utcToday } from "./api";
+import { STATS, statRecord, utcToday } from "./api";
 import type { Prediction } from "./api";
 
-const forecast: Prediction = {
+const forecast: Prediction = makePrediction({
   forecast_id: "saved-forecast",
-  player_id: "1",
-  game_id: "game",
   game_date: utcToday(),
-  team: "LAL",
-  opponent: "BOS",
-  home: true,
-  projected_minutes: 32,
-  history_games: 100,
-  last_history_date: "2026-01-01",
-  stub_mode: true,
-  warnings: [],
-  stats: Object.fromEntries(
-    STATS.map((s) => [
-      s,
-      { prediction: 20, approximate_80pct_range: [10, 30] },
-    ]),
-  ) as Prediction["stats"],
-  baseline: {
-    stats: Object.fromEntries(
-      STATS.map((s) => [s, 18]),
-    ) as Prediction["baseline"]["stats"],
-    parameters: {},
-  },
   model: {
     status: "trained",
     cache_hit: false,
@@ -47,12 +26,12 @@ const forecast: Prediction = {
         active: true,
         baseline_mae: 8,
         model_mae: 7,
-        baseline: { window: "career", kind: "blend", value: 0.5 },
+        baseline: { window: "career", kind: "fixed", value: 0.5 },
       },
     },
     evaluation: { validation_games: 20 },
   },
-};
+});
 const game = {
   game_id: "game",
   date: utcToday(),
@@ -64,14 +43,18 @@ const game = {
 };
 let predictionHandler: (init?: RequestInit) => Promise<Response>;
 let scenarioHandler: (init?: RequestInit) => Promise<Response>;
-const json = (data: unknown, status = 200) =>
-  Promise.resolve(
-    new Response(JSON.stringify(data), {
-      status,
-      headers: { "Content-Type": "application/json" },
-    }),
-  );
-
+let backtestHandler: () => Promise<Response>;
+const backtestResult = {
+  evaluated_games: 12,
+  stub_mode: true,
+  stats: statRecord(() => ({
+    mae: 2,
+    rmse: 3,
+    blended_baseline_mae: 4,
+    last_10_mean_mae: 5,
+    range_coverage: 0.8,
+  })),
+};
 beforeEach(() => {
   Object.defineProperty(HTMLDialogElement.prototype, "close", {
     configurable: true,
@@ -86,6 +69,7 @@ beforeEach(() => {
     },
   });
   predictionHandler = () => json(forecast);
+  backtestHandler = () => json(backtestResult);
   scenarioHandler = () =>
     json({
       reference: forecast,
@@ -117,6 +101,7 @@ beforeEach(() => {
         });
       if (path === "/predictions") return predictionHandler(init);
       if (path === "/predictions/scenarios") return scenarioHandler(init);
+      if (path === "/backtests") return backtestHandler();
       return json({ detail: "Unexpected request" }, 500);
     }),
   );
@@ -140,6 +125,32 @@ async function selectPlayer() {
 }
 
 describe("prediction workflow", () => {
+  it("retains the previous backtest while another evaluation is running", async () => {
+    const user = await selectPlayer();
+    await user.click(screen.getByRole("button", { name: "Open navigation" }));
+    await user.click(
+      within(screen.getByRole("dialog", { name: "Navigation" })).getByRole(
+        "button",
+        { name: "Model insights" },
+      ),
+    );
+    await user.click(screen.getByRole("button", { name: "Run backtest" }));
+    await screen.findByText(/12 games evaluated/);
+    let resolve: (response: Response) => void = () => {};
+    backtestHandler = () =>
+      new Promise((result) => {
+        resolve = result;
+      });
+    await user.click(screen.getByRole("button", { name: "Run backtest" }));
+    expect(screen.getByText(/12 games evaluated/)).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /Evaluating past games/ }),
+    ).toHaveProperty("disabled", true);
+    await act(async () => {
+      resolve(await json({ ...backtestResult, evaluated_games: 20 }));
+    });
+    await screen.findByText(/20 games evaluated/);
+  });
   it("presents the forecast limit with a clear title and recovery guidance", async () => {
     predictionHandler = async () =>
       new Response(JSON.stringify({ detail: "Too many requests" }), {

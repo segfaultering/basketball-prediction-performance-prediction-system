@@ -1,7 +1,6 @@
 """Immutable pregame forecasts and separately refreshed outcomes in SQLite."""
 
 import json
-import math
 import sqlite3
 from contextlib import closing
 from datetime import UTC, datetime
@@ -9,9 +8,20 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from .baseline import season_name, season_start
+from .forecast_reporting import ForecastSummary, decorate_record
 from .model import STATS, GameLog
-from .providers import NBAClient, StubClient
+from .providers import DataProvider
+
+
+def decode_record(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "created_at": row["created_at"],
+        "inputs": json.loads(row["inputs"]),
+        "prediction": json.loads(row["prediction"]),
+        "outcome": json.loads(row["outcome"]) if row["outcome"] else None,
+        "updated_at": row["updated_at"],
+    }
 
 
 def require_pregame(game: dict, now: datetime | None = None) -> None:
@@ -79,23 +89,16 @@ class ForecastStore:
             )
         return {"forecast_id": identifier, "saved_at": created}
 
+    def _records(self, connection: sqlite3.Connection):
+        rows = connection.execute(
+            "SELECT * FROM forecasts WHERE source = ? ORDER BY created_at, rowid",
+            (self.source,),
+        )
+        return (decode_record(row) for row in rows)
+
     def records(self) -> list[dict[str, Any]]:
         with closing(self._connect()) as connection:
-            rows = connection.execute(
-                "SELECT * FROM forecasts WHERE source = ? ORDER BY created_at, rowid",
-                (self.source,),
-            ).fetchall()
-        return [
-            {
-                "id": row["id"],
-                "created_at": row["created_at"],
-                "inputs": json.loads(row["inputs"]),
-                "prediction": json.loads(row["prediction"]),
-                "outcome": json.loads(row["outcome"]) if row["outcome"] else None,
-                "updated_at": row["updated_at"],
-            }
-            for row in rows
-        ]
+            return list(self._records(connection))
 
     def settle(self, identifiers: list[str], game: GameLog) -> None:
         outcome = {
@@ -120,168 +123,29 @@ class ForecastStore:
             )
 
     def report(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
-        records = self.records()
-        first: dict[tuple, dict] = {}
-        for record in records:
-            prediction = record["prediction"]
-            key = (
-                prediction["player_id"],
-                prediction["game_id"],
-                prediction["game_date"] if self.source == "stub" else None,
+        summary = ForecastSummary(self.source)
+        with closing(self._connect()) as connection:
+            # Summary and page must describe the same archive snapshot.
+            connection.execute("BEGIN")
+            for record in self._records(connection):
+                summary.add(record)
+            rows = connection.execute(
+                "SELECT * FROM forecasts WHERE source = ? "
+                "ORDER BY created_at DESC, rowid DESC LIMIT ? OFFSET ?",
+                (self.source, limit, offset),
             )
-            record["primary"] = key not in first
-            first.setdefault(key, record)
-            actual = record["outcome"]
-            record["status"] = (
-                "pending"
-                if actual is None
-                else "did_not_play"
-                if actual["minutes"] == 0
-                else "settled"
-            )
-            record["errors"] = (
-                {
-                    stat: round(
-                        prediction["stats"][stat]["prediction"] - actual["stats"][stat],
-                        3,
-                    )
-                    for stat in STATS
-                }
-                if record["status"] == "settled"
-                else None
-            )
-        evaluated = [r for r in first.values() if r["status"] == "settled"]
-        metrics = {}
-        for stat in STATS:
-            errors = [
-                r["prediction"]["stats"][stat]["prediction"]
-                - r["outcome"]["stats"][stat]
-                for r in evaluated
+            page = [
+                decorate_record(decode_record(row), row["id"] in summary.primary_ids)
+                for row in rows
             ]
-            baseline_errors = [
-                r["prediction"]["baseline"]["stats"][stat] - r["outcome"]["stats"][stat]
-                for r in evaluated
-            ]
-            covered = sum(
-                r["prediction"]["stats"][stat]["approximate_80pct_range"][0]
-                <= r["outcome"]["stats"][stat]
-                <= r["prediction"]["stats"][stat]["approximate_80pct_range"][1]
-                for r in evaluated
-            )
-            count = len(errors)
-            metrics[stat] = {
-                "mae": round(sum(abs(e) for e in errors) / count, 3) if count else None,
-                "rmse": round(math.sqrt(sum(e * e for e in errors) / count), 3)
-                if count
-                else None,
-                "baseline_mae": round(sum(abs(e) for e in baseline_errors) / count, 3)
-                if count
-                else None,
-                "range_coverage": round(covered / count, 3) if count else None,
-            }
         return {
             "stub_mode": self.source == "stub",
-            "total": len(records),
-            "forecasts": list(reversed(records))[offset : offset + limit],
-            "summary": {
-                "tracked_games": len(first),
-                "evaluated_games": len(evaluated),
-                "pending_games": sum(r["status"] == "pending" for r in first.values()),
-                "did_not_play_games": sum(
-                    r["status"] == "did_not_play" for r in first.values()
-                ),
-                "stats": metrics,
-            },
+            "total": summary.total,
+            "forecasts": page,
+            "summary": summary.report(),
         }
 
-    def refresh(self, provider: NBAClient | StubClient) -> dict:
-        # A separate live client bypasses response caches without changing the
-        # provider used by concurrent prediction requests.
-        client = (
-            NBAClient(provider.cache_dir, refresh=True)
-            if isinstance(provider, NBAClient)
-            else provider
-        )
-        groups: dict[tuple[str, str, str], list[dict]] = {}
-        for record in self.records():
-            prediction = record["prediction"]
-            season = season_name(
-                season_start(datetime.fromisoformat(prediction["game_date"]).date())
-            )
-            key = (season, prediction["player_id"], record["inputs"]["season_type"])
-            groups.setdefault(key, []).append(record)
-        schedules: dict[str, list] = {}
-        failures: dict[str, str] = {}
-        errors = []
-        updated = 0
-        for (season, player, season_type), records in groups.items():
-            try:
-                if season in failures:
-                    raise ValueError(failures[season])
-                if season not in schedules:
-                    try:
-                        schedules[season] = (
-                            client.schedule(season)
-                            if isinstance(client, NBAClient)
-                            else client.schedule()
-                        )
-                    except ValueError as exc:
-                        failures[season] = str(exc)
-                        raise
-                final = {
-                    (g["game_id"], g["date"] if self.source == "stub" else None)
-                    for g in schedules[season]
-                    if g["status"] == 3
-                }
-                eligible = [
-                    r
-                    for r in records
-                    if (
-                        r["prediction"]["game_id"],
-                        r["prediction"]["game_date"] if self.source == "stub" else None,
-                    )
-                    in final
-                ]
-                if not eligible:
-                    continue
-                # History selection need not match the target game's type:
-                # regular-season history can forecast a playoff appearance.
-                types = [season_type]
-                if self.source == "nba":
-                    types.extend(
-                        t
-                        for t in ("Regular Season", "Playoffs", "Pre Season")
-                        if t != season_type
-                    )
-                for outcome_type in types:
-                    if not eligible:
-                        break
-                    logs = client.logs(player, season, outcome_type)
-                    for game in logs:
-                        identifiers = [
-                            r["id"]
-                            for r in eligible
-                            if r["prediction"]["game_id"] == game.game_id
-                            # NBA game-log dates use local calendar days while the
-                            # schedule uses UTC; the NBA game ID is authoritative.
-                            and (
-                                self.source != "stub"
-                                or r["prediction"]["game_date"] == game.date.isoformat()
-                            )
-                            and game.player_id == player
-                        ]
-                        if identifiers:
-                            self.settle(identifiers, game)
-                            updated += len(identifiers)
-                            eligible = [
-                                r for r in eligible if r["id"] not in identifiers
-                            ]
-            except (ValueError, OSError, KeyError, TypeError) as exc:
-                errors.append(
-                    {"player_id": player, "season": season, "detail": str(exc)}
-                )
-        return {
-            "updated_forecasts": updated,
-            "errors": errors,
-            "stub_mode": self.source == "stub",
-        }
+    def refresh(self, provider: DataProvider) -> dict:
+        from .outcomes import refresh_outcomes
+
+        return refresh_outcomes(self, provider)

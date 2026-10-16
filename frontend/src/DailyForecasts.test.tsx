@@ -1,3 +1,4 @@
+import { jsonResponse as json, makePrediction } from "./testFixtures";
 import {
   cleanup,
   fireEvent,
@@ -9,19 +10,12 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import DailyForecasts from "./DailyForecasts";
-import { STATS } from "./api";
+import { statRecord } from "./api";
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
-const json = (data: unknown, status = 200) =>
-  Promise.resolve(
-    new Response(JSON.stringify(data), {
-      status,
-      headers: { "Content-Type": "application/json" },
-    }),
-  );
 const game = {
   game_id: "g1",
   date: "2026-10-20",
@@ -31,20 +25,24 @@ const game = {
   home_team_id: "2",
   away_team_id: "1",
 };
-const forecast = (id: string) => ({
-  player_id: id,
-  projected_minutes: 30,
-  last_history_date: "2026-10-18",
-  model: { trained_through: "2026-10-18" },
-  warnings: ["Recent role uncertainty"],
-  saved_at: "2026-10-20T12:00:00Z",
-  stats: Object.fromEntries(
-    STATS.map((s) => [
-      s,
-      { prediction: id === "a" ? 25 : 18, approximate_80pct_range: [10, 30] },
-    ]),
-  ),
-});
+const forecast = (id: string) =>
+  makePrediction({
+    player_id: id,
+    projected_minutes: 30,
+    last_history_date: "2026-10-18",
+    model: {
+      status: "trained",
+      cache_hit: false,
+      stats: {},
+      trained_through: "2026-10-18",
+    },
+    warnings: ["Recent role uncertainty"],
+    saved_at: "2026-10-20T12:00:00Z",
+    stats: statRecord(() => ({
+      prediction: id === "a" ? 25 : 18,
+      approximate_80pct_range: [10, 30],
+    })),
+  });
 
 it("selects across teams, keeps successful forecasts, retries failures and filters results", async () => {
   const user = userEvent.setup();

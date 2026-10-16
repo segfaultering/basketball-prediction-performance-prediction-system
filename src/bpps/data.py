@@ -17,7 +17,9 @@ from nba_api.stats.endpoints import (
 )
 from requests.exceptions import RequestException
 
+from .cache import write_json_atomic
 from .model import GameLog
+from .seasons import season_name, season_start
 
 
 class ScheduledGame(TypedDict):
@@ -81,15 +83,14 @@ class NBAClient:
             ["nba_api-v1", endpoint.__name__, params, dataset], sort_keys=True
         )
         path = self.cache_dir / (hashlib.sha256(key.encode()).hexdigest() + ".json")
-        if (
-            not self.refresh
-            and path.exists()
-            and time.time() - path.stat().st_mtime < ttl
-        ):
+        if not self.refresh:
             try:
-                cached = json.loads(path.read_text())
-                if isinstance(cached, list):
-                    return cached
+                if time.time() - path.stat().st_mtime < ttl:
+                    cached = json.loads(path.read_text())
+                    if isinstance(cached, list) and all(
+                        isinstance(row, dict) for row in cached
+                    ):
+                        return cached
             except OSError, ValueError:
                 pass  # Corrupt cache entries are refetched.
         try:
@@ -116,15 +117,13 @@ class NBAClient:
                 f"NBA data unavailable via nba_api ({dataset}): {exc}. "
                 "The NBA may be blocking requests; retry later or use STUB_MODE=1."
             ) from exc
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(rows))
+        write_json_atomic(path, rows)
         return rows
 
     def schedule(self, season: str | None = None) -> list[ScheduledGame]:
         if season is None:
             today = datetime.now(UTC).date()
-            start = today.year if today.month >= 7 else today.year - 1
-            season = f"{start}-{str(start + 1)[-2:]}"
+            season = season_name(season_start(today))
         rows = self.request(
             scheduleleaguev2.ScheduleLeagueV2,
             {"season": season, "league_id": "00"},
@@ -166,20 +165,23 @@ class NBAClient:
             "PlayerGameLog",
             ttl=ttl,
         )
-        return [
-            GameLog(
-                str(player_id),
-                str(r["Game_ID"]),
-                datetime.strptime(r["GAME_DATE"], "%b %d, %Y")
-                .replace(tzinfo=UTC)
-                .date(),
-                r["MATCHUP"][:3],
-                r["MATCHUP"][-3:],
-                "vs." in r["MATCHUP"],
-                *(float(r[s]) for s in ("MIN", "PTS", "REB", "AST", "STL", "BLK")),
-            )
-            for r in rows
-        ]
+        try:
+            return [
+                GameLog(
+                    str(player_id),
+                    str(r["Game_ID"]),
+                    datetime.strptime(r["GAME_DATE"], "%b %d, %Y")
+                    .replace(tzinfo=UTC)
+                    .date(),
+                    r["MATCHUP"][:3],
+                    r["MATCHUP"][-3:],
+                    "vs." in r["MATCHUP"],
+                    *(float(r[s]) for s in ("MIN", "PTS", "REB", "AST", "STL", "BLK")),
+                )
+                for r in rows
+            ]
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(f"Invalid NBA player game log response: {exc}") from exc
 
     def career_logs(
         self, player_id: str, through: date, season_type: str = "Regular Season"
@@ -198,14 +200,14 @@ class NBAClient:
             raise ValueError(
                 "NBA player information has no valid career start"
             ) from exc
-        last = through.year if through.month >= 7 else through.year - 1
+        last = season_start(through)
         if not 1946 <= first <= last:
             raise ValueError("NBA player information has an invalid career start")
         today = datetime.now(UTC).date()
-        current = today.year if today.month >= 7 else today.year - 1
+        current = season_start(today)
         logs: list[GameLog] = []
         for year in range(first, last + 1):
-            season = f"{year}-{(year + 1) % 100:02d}"
+            season = season_name(year)
             try:
                 logs.extend(
                     self.logs(

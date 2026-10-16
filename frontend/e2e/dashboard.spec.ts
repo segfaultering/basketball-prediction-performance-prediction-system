@@ -1,12 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
-
-async function navigate(page: Page, name: string) {
-  await page.getByRole("button", { name: "Open navigation" }).click();
-  await page
-    .getByRole("dialog", { name: "Navigation", exact: true })
-    .getByRole("button", { name, exact: true })
-    .click();
-}
+import { navigate } from "./helpers";
+import { test, expect } from "@playwright/test";
 
 test("generates selected daily forecasts and saves them to history", async ({
   page,
@@ -62,11 +55,11 @@ test("switches themes and preserves the selection across reloads", async ({
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.locator("html")).toHaveCSS(
     "background-color",
-    "rgb(18, 26, 23)",
+    "rgb(24, 25, 22)",
   );
   await expect(page.locator(".selection-panel")).toHaveCSS(
     "background-color",
-    "rgb(27, 37, 32)",
+    "rgb(34, 35, 31)",
   );
   expect(
     await page.evaluate(
@@ -81,7 +74,7 @@ test("switches themes and preserves the selection across reloads", async ({
   await navigate(page, "How it works");
   await expect(
     page.getByRole("dialog", { name: "How forecasts work", exact: true }),
-  ).toHaveCSS("background-color", "rgb(27, 37, 32)");
+  ).toHaveCSS("background-color", "rgb(34, 35, 31)");
   await page.getByRole("button", { name: "Close explanation" }).click();
   await page.getByRole("button", { name: "Switch to light mode" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");

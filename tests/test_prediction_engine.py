@@ -10,7 +10,8 @@ import pytest
 from bpps.baseline import Candidate, make_context
 from bpps.learning import LinearCorrection, RidgeBackend, create_backend
 from bpps.model import GameLog
-from bpps.prediction_engine import PredictionEngine, partitions, training_rows
+from bpps.prediction_engine import PredictionEngine
+from bpps.training import partitions, training_rows
 
 
 @pytest.fixture
@@ -43,6 +44,22 @@ def test_minutes_explorer_trains_once_and_uses_the_prediction_engine(logs, tmp_p
     for minutes in (0, 17, 48):
         expected = engine.prediction(logs, "1", target, "BOS", True, minutes)
         assert result["scenarios"][minutes]["stats"] == expected["stats"]
+
+
+def test_prepared_forecasts_reuse_models_and_keep_results_independent(logs, tmp_path):
+    engine = PredictionEngine(tmp_path, "csv")
+    prepared = engine.prepare(logs, "1", date(2024, 5, 1), "BOS", True)
+    with patch.object(
+        engine.backend, "restore", wraps=engine.backend.restore
+    ) as restore:
+        first = prepared.prediction(17)
+        second = prepared.prediction(48)
+        assert restore.call_count == 0
+    first["model"]["stats"]["points"]["active"] = "modified"
+    first["warnings"].append("modified")
+    assert second["model"]["stats"]["points"]["active"] is True
+    assert "modified" not in second["warnings"]
+    assert prepared.prediction(17)["model"]["stats"]["points"]["active"] is True
 
 
 def test_ridge_learns_context_and_gates_each_stat(logs, tmp_path):
@@ -84,7 +101,15 @@ def test_changed_history_retrains(logs, tmp_path):
 
 
 @pytest.mark.parametrize(
-    "corruption", ["not json", "[]", "invalid_features", "nan_coefficients"]
+    "corruption",
+    [
+        "not json",
+        "[]",
+        "invalid_features",
+        "nan_coefficients",
+        "missing_status",
+        "missing_evaluation",
+    ],
 )
 def test_corrupt_and_incompatible_artifacts_retrain(logs, tmp_path, corruption):
     engine = PredictionEngine(tmp_path)
@@ -96,6 +121,8 @@ def test_corrupt_and_incompatible_artifacts_retrain(logs, tmp_path, corruption):
         data = json.loads(path.read_text())
         if corruption == "invalid_features":
             data["features"] = ["actual_target_minutes"]
+        elif corruption.startswith("missing_"):
+            del data[corruption.removeprefix("missing_")]
         else:
             data["stats"]["points"]["model"]["coefficients"][0] = float("nan")
         path.write_text(json.dumps(data))

@@ -97,7 +97,9 @@ def test_refresh_requires_final_game_and_exact_matching(store, monkeypatch):
     monkeypatch.setattr(
         provider,
         "schedule",
-        lambda: [{"game_id": "game-1", "date": "2026-01-03", "status": status}],
+        lambda season=None: [
+            {"game_id": "game-1", "date": "2026-01-03", "status": status}
+        ],
     )
     monkeypatch.setattr(
         provider, "logs", lambda *args: [actual(game="wrong"), actual(player="wrong")]
@@ -147,7 +149,7 @@ def test_partial_refresh_failure_preserves_records_and_other_results(
     monkeypatch.setattr(
         provider,
         "schedule",
-        lambda: [{"game_id": "game-1", "date": "2026-01-03", "status": 3}],
+        lambda season=None: [{"game_id": "game-1", "date": "2026-01-03", "status": 3}],
     )
 
     def logs(player, season, season_type):
@@ -202,3 +204,32 @@ def test_past_date_without_tipoff_is_rejected():
         require_pregame(
             {"status": 1, "date": "2026-01-02"}, datetime(2026, 1, 3, tzinfo=UTC)
         )
+
+
+def test_refresh_counts_saved_outcomes_before_a_later_season_type_failure(
+    tmp_path, monkeypatch
+):
+    store = ForecastStore(tmp_path / "forecasts.sqlite3", "nba")
+    first = save(store)
+    second = save(store, game="game-2")
+    monkeypatch.setattr(
+        NBAClient,
+        "schedule",
+        lambda *args: [
+            {"game_id": game, "date": "2026-01-03", "status": 3}
+            for game in ("game-1", "game-2")
+        ],
+    )
+
+    def logs(client, player, season, season_type):
+        if season_type == "Regular Season":
+            return [actual()]
+        raise ValueError("Playoff data unavailable")
+
+    monkeypatch.setattr(NBAClient, "logs", logs)
+    result = store.refresh(NBAClient(tmp_path))
+    assert result["updated_forecasts"] == 1
+    assert result["errors"][0]["detail"] == "Playoff data unavailable"
+    records = {record["id"]: record for record in store.report()["forecasts"]}
+    assert records[first]["status"] == "settled"
+    assert records[second]["status"] == "pending"

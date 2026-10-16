@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { LABELS, STATS, prettyDate, request, getDataMode } from "./api";
-import type { ForecastHistory, ForecastRefresh } from "./api";
+import { LABELS, STATS, prettyDate } from "./api";
+import type { ForecastHistory } from "./api";
+import { useApi } from "./ApiContext";
 import AccuracyGuide from "./AccuracyGuide";
 
 const value = (number: number | null | undefined) =>
@@ -8,6 +9,7 @@ const value = (number: number | null | undefined) =>
 const pageSize = 20;
 
 export default function ForecastTracking() {
+  const api = useApi();
   const [history, setHistory] = useState<ForecastHistory | null>(null);
   const [offset, setOffset] = useState(0);
   const [revision, setRevision] = useState(0);
@@ -20,10 +22,8 @@ export default function ForecastTracking() {
   useEffect(() => {
     const controller = new AbortController();
     setBusy(true);
-    request<ForecastHistory>(
-      `/forecasts?limit=${pageSize}&offset=${offset}`,
-      controller.signal,
-    )
+    api
+      .history(pageSize, offset, controller.signal)
       .then((data) => {
         if (!controller.signal.aborted) setHistory(data);
       })
@@ -37,7 +37,7 @@ export default function ForecastTracking() {
         if (!controller.signal.aborted) setBusy(false);
       });
     return () => controller.abort();
-  }, [offset, revision]);
+  }, [api, offset, revision]);
 
   useEffect(() => () => refreshAbort.current?.abort(), []);
 
@@ -49,11 +49,7 @@ export default function ForecastTracking() {
     setError("");
     setNotice("");
     try {
-      const result = await request<ForecastRefresh>(
-        "/forecasts/refresh",
-        controller.signal,
-        {},
-      );
+      const result = await api.refreshResults(controller.signal);
       if (controller.signal.aborted) return;
       setNotice(`Updated ${result.updated_forecasts} forecast records.`);
       setError(
@@ -77,7 +73,7 @@ export default function ForecastTracking() {
         <div>
           <h2>Forecast history</h2>
           <p>
-            {getDataMode() === "replay"
+            {api.mode === "replay"
               ? "Compare your saved replay scenarios with what happened in those games."
               : "Compare saved predictions with final stats to see how close they were."}
           </p>
@@ -96,7 +92,7 @@ export default function ForecastTracking() {
           <button
             className="today-button"
             disabled={
-              busy || refreshing || !history?.total || getDataMode() === "live"
+              busy || refreshing || !history?.total || api.mode === "live"
             }
             onClick={refreshResults}
           >
@@ -110,10 +106,10 @@ export default function ForecastTracking() {
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
-      {getDataMode() !== "server" && (
+      {api.mode !== "server" && (
         <p className="table-note">
           History is kept in this browser, with up to 100 scenarios per mode.{" "}
-          {getDataMode() === "replay"
+          {api.mode === "replay"
             ? "These are retrospective replay results, not evidence of forecasts made before tipoff."
             : "Live outcome refresh is not enabled in this public demo."}
         </p>

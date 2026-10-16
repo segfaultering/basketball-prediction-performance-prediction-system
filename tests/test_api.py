@@ -162,13 +162,13 @@ def test_finished_game(client, monkeypatch):
     monkeypatch.setattr(
         client.app.state.provider,
         "schedule",
-        lambda: [{"game_id": "demo-game", "status": 3}],
+        lambda season=None: [{"game_id": "demo-game", "status": 3}],
     )
     assert client.post("/predictions", json=payload()).status_code == 409
 
 
 def test_upstream_failure(client, monkeypatch):
-    def unavailable():
+    def unavailable(season=None):
         raise ValueError("NBA data unavailable")
 
     monkeypatch.setattr(client.app.state.provider, "schedule", unavailable)
@@ -234,7 +234,7 @@ def test_forecasts_saved_reopened_and_refreshed(client, monkeypatch):
     provider = client.app.state.provider
     game = provider.schedule()[0]
     game["status"] = 3
-    monkeypatch.setattr(provider, "schedule", lambda: [game])
+    monkeypatch.setattr(provider, "schedule", lambda season=None: [game])
     outcome = GameLog(
         "demo-player",
         "demo-game",

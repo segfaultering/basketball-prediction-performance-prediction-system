@@ -3,7 +3,6 @@
 import csv
 import hashlib
 import json
-import math
 from collections import Counter
 from dataclasses import asdict, dataclass
 from datetime import date, timedelta
@@ -15,13 +14,13 @@ from .baseline import (
     Candidate,
     candidates,
     history_digest,
-    rates,
-    season_name,
-    season_start,
+    make_context,
     validate_logs,
 )
 from .data import NBAClient, read_logs
+from .metrics import mean_absolute_error, root_mean_squared_error
 from .model import GameLog, predict
+from .seasons import season_name, season_start
 from .settings import PROJECT_ROOT
 
 RESEARCH_STATS = TARGET_STATS
@@ -172,20 +171,17 @@ def build_features(logs: list[GameLog], player_id: str) -> list[Features]:
         prior = [g for g in history if g.date < game.date]
         if len(prior) < 5:
             continue
-        year = season_start(game.date)
-        current = [g for g in prior if season_start(g.date) == year]
-        past = [g for g in prior if season_start(g.date) < year]
-        recent = [g for g in past if season_start(g.date) >= year - 3]
+        context = make_context(prior, game.date, game.home)
         last = prior[-10:]
         existing = predict(prior, player_id, game.date, game.opponent, game.home)
         features.append(
             Features(
                 game=game,
-                estimated_minutes=min(48.0, sum(g.minutes for g in last) / len(last)),
-                season_minutes=sum(g.minutes for g in current),
-                season_rates=rates(current),
-                career_rates=rates(past),
-                previous_three_rates=rates(recent),
+                estimated_minutes=context.estimated_minutes,
+                season_minutes=context.season_minutes,
+                season_rates=context.season_rates,
+                career_rates=context.career_rates,
+                previous_three_rates=context.previous_three_rates,
                 last_ten={
                     s: sum(getattr(g, s) for g in last) / len(last)
                     for s in RESEARCH_STATS
@@ -213,8 +209,8 @@ def score(stat: str, method: str, errors: list[float]) -> Score:
     return {
         "stat": stat,
         "method": method,
-        "mae": sum(abs(e) for e in errors) / len(errors),
-        "rmse": math.sqrt(sum(e * e for e in errors) / len(errors)),
+        "mae": mean_absolute_error(errors),
+        "rmse": root_mean_squared_error(errors),
         "evaluated_games": len(errors),
     }
 

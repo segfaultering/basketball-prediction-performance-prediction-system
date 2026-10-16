@@ -8,6 +8,7 @@ from datetime import date
 from typing import Literal, Protocol
 
 from .model import GameLog
+from .seasons import season_start
 
 TARGET_STATS = ("points", "rebounds", "assists")
 RESEARCH_STATS = TARGET_STATS
@@ -25,15 +26,6 @@ class RateContext(Protocol):
     def career_rates(self) -> dict[str, float] | None: ...
     @property
     def previous_three_rates(self) -> dict[str, float] | None: ...
-
-
-def season_start(day: date) -> int:
-    """July-to-June labels, consistent with the application."""
-    return day.year if day.month >= 7 else day.year - 1
-
-
-def season_name(start: int) -> str:
-    return f"{start}-{(start + 1) % 100:02d}"
 
 
 def validate_logs(logs: list[GameLog], player_id: str) -> list[GameLog]:

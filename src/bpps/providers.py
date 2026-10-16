@@ -1,9 +1,11 @@
 """Choose an entirely local provider when STUB_MODE is enabled."""
 
 from datetime import UTC, date, datetime, timedelta
+from typing import Any, Protocol
 
 from .data import NBAClient, ScheduledGame
 from .model import GameLog
+from .seasons import season_name, season_start
 from .settings import Settings
 
 
@@ -14,7 +16,7 @@ def stub_enabled():
 class StubClient:
     """Synthetic fixtures generated locally; no HTTP or cache access."""
 
-    def schedule(self) -> list[ScheduledGame]:
+    def schedule(self, season: str | None = None) -> list[ScheduledGame]:
         today = datetime.now(UTC).date()
         return [
             {
@@ -79,13 +81,25 @@ class StubClient:
     def career_logs(
         self, player_id: str, through: date, season_type: str = "Regular Season"
     ) -> list[GameLog]:
-        last = through.year if through.month >= 7 else through.year - 1
+        last = season_start(through)
         logs: list[GameLog] = []
         for year in range(last - 4, last + 1):
-            logs.extend(
-                self.logs(player_id, f"{year}-{(year + 1) % 100:02d}", season_type)
-            )
+            logs.extend(self.logs(player_id, season_name(year), season_type))
         return logs
+
+
+class DataProvider(Protocol):
+    def schedule(self, season: str | None = None) -> list[ScheduledGame]: ...
+
+    def roster(self, team_id: str, season: str) -> list[dict[str, Any]]: ...
+
+    def logs(
+        self, player_id: str, season: str, season_type: str = "Regular Season"
+    ) -> list[GameLog]: ...
+
+    def career_logs(
+        self, player_id: str, through: date, season_type: str = "Regular Season"
+    ) -> list[GameLog]: ...
 
 
 def create_provider(cache_dir=None, refresh=False, settings: Settings | None = None):

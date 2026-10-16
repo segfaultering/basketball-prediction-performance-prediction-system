@@ -4,16 +4,19 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Annotated, Literal
 
-from fastapi import HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
+from .errors import ApplicationError, NotFoundError, PregameError
 from .learning import create_backend
 from .prediction_engine import PredictionEngine
-from .providers import NBAClient, StubClient
+from .providers import DataProvider, StubClient
+from .seasons import season_name, season_start, validate_season
 from .settings import Settings
 from .tracking import ForecastStore, require_pregame
 
-Season = Annotated[str, Field(pattern=r"^\d{4}-\d{2}$")]
+Season = Annotated[
+    str, Field(pattern=r"^[0-9]{4}-[0-9]{2}$"), AfterValidator(validate_season)
+]
 SeasonType = Literal["Regular Season", "Playoffs", "Pre Season"]
 
 
@@ -32,16 +35,10 @@ class PredictionRequest(ScenarioRequest):
     minutes: float | None = Field(default=None, ge=0, le=48, allow_inf_nan=False)
 
 
-def validate_season(season):
-    if (int(season[:4]) + 1) % 100 != int(season[-2:]):
-        raise HTTPException(422, "Season must contain consecutive years, e.g. 2025-26")
-    return season
-
-
 class PredictionService:
     def __init__(
         self,
-        provider: NBAClient | StubClient,
+        provider: DataProvider,
         cache_dir: Path | None = None,
         backend_name: str = "ridge",
         forecast_store: ForecastStore | None = None,
@@ -66,11 +63,12 @@ class PredictionService:
         return self.engines[season_type]
 
     def games(self, target: date):
+        schedule = self.provider.schedule(season_name(season_start(target)))
         return {
             "stub_mode": self.stub,
             "games": [
                 g
-                for g in self.provider.schedule()
+                for g in schedule
                 if g["date"] == target.isoformat() and g["status"] == 1
             ],
         }
@@ -78,7 +76,7 @@ class PredictionService:
     def players(self, team_id: str, season: str):
         return {
             "stub_mode": self.stub,
-            "players": self.provider.roster(team_id, validate_season(season)),
+            "players": self.provider.roster(team_id, season),
         }
 
     def history(self, body: HistoryRequest, through: date | None = None):
@@ -90,38 +88,40 @@ class PredictionService:
             logs = []
             for season in dict.fromkeys(body.seasons):
                 logs.extend(
-                    self.provider.logs(
-                        body.player_id, validate_season(season), body.season_type
-                    )
+                    self.provider.logs(body.player_id, season, body.season_type)
                 )
         if not logs:
-            raise HTTPException(
-                404, "No player history found for the requested seasons"
-            )
+            raise NotFoundError("No player history found for the requested seasons")
         return logs
 
-    def player_context(self, player_id: str, game_id: str):
+    def player_context(self, player_id: str, game_id: str, team: str | None = None):
         game = next(
             (g for g in self.provider.schedule() if str(g["game_id"]) == game_id),
             None,
         )
         if game is None:
-            raise HTTPException(404, "Game not found")
+            raise NotFoundError("Game not found")
         if game["status"] != 1:
-            raise HTTPException(409, "Game has already started or finished")
+            raise PregameError("Game has already started or finished")
         try:
             require_pregame(dict(game))
         except ValueError as exc:
-            raise HTTPException(409, str(exc)) from exc
+            raise PregameError(str(exc)) from exc
         game_date = date.fromisoformat(game["date"])
-        start = game_date.year if game_date.month >= 7 else game_date.year - 1
-        season = f"{start}-{str(start + 1)[-2:]}"
+        season = season_name(season_start(game_date))
+        if team is not None and team not in (game["home_team"], game["away_team"]):
+            raise ApplicationError("Player team is not participating in this game")
         home = None
         player_name = player_id
         for team_id, is_home in (
             (game["home_team_id"], True),
             (game["away_team_id"], False),
         ):
+            if (
+                team is not None
+                and team != game["home_team" if is_home else "away_team"]
+            ):
+                continue
             roster = self.provider.roster(team_id, season)
             player = next((p for p in roster if str(p["PLAYER_ID"]) == player_id), None)
             if player is not None:
@@ -129,14 +129,14 @@ class PredictionService:
                 player_name = player["PLAYER"]
                 break
         if home is None:
-            raise HTTPException(
-                422, "Player is not on either participating team's roster"
+            raise ApplicationError(
+                "Player is not on either participating team's roster"
             )
         return game, game_date, home, player_name
 
-    def prediction(self, body: PredictionRequest):
+    def prediction(self, body: PredictionRequest, team: str | None = None):
         game, game_date, home, player_name = self.player_context(
-            body.player_id, body.game_id
+            body.player_id, body.game_id, team
         )
         logs = self.history(body, game_date)
         try:
@@ -149,7 +149,7 @@ class PredictionService:
                 body.minutes,
             )
         except ValueError as exc:
-            raise HTTPException(422, str(exc)) from exc
+            raise ApplicationError(str(exc)) from exc
         result.update(
             game_id=body.game_id,
             team=game["home_team" if home else "away_team"],
@@ -167,7 +167,7 @@ class PredictionService:
             try:
                 require_pregame(dict(game))
             except ValueError as exc:
-                raise HTTPException(409, str(exc)) from exc
+                raise PregameError(str(exc)) from exc
             result.update(self.forecast_store.save(body.model_dump(), result))
         return result
 
@@ -183,12 +183,12 @@ class PredictionService:
                 home,
             )
         except ValueError as exc:
-            raise HTTPException(422, str(exc)) from exc
+            raise ApplicationError(str(exc)) from exc
 
     def evaluate(self, body: HistoryRequest):
         logs = self.history(body)
         try:
             result = self.engine(body.season_type).backtest(logs, body.player_id)
         except ValueError as exc:
-            raise HTTPException(422, str(exc)) from exc
+            raise ApplicationError(str(exc)) from exc
         return {**result, "stub_mode": self.stub}

@@ -1,7 +1,28 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { request, seasonFor, shiftDate, tipoff } from "./api";
+import {
+  createClient,
+  request,
+  seasonFor,
+  setDataMode,
+  shiftDate,
+  tipoff,
+} from "./api";
 
 afterEach(() => vi.unstubAllGlobals());
+it("keeps an explicitly created client bound to its mode", async () => {
+  const client = createClient("server");
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response(JSON.stringify({ stub_mode: true }))),
+  );
+  setDataMode("replay");
+  try {
+    expect(await client.health()).toEqual({ stub_mode: true });
+    expect(fetch).toHaveBeenCalledWith("/health", expect.any(Object));
+  } finally {
+    setDataMode("server");
+  }
+});
 it.each([
   [429, "60", "Forecast limit reached. Please wait about 1 minute"],
   [429, "120", "Forecast limit reached. Please wait about 2 minutes"],

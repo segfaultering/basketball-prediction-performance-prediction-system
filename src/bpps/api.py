@@ -14,6 +14,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from .errors import ApplicationError
 from .providers import create_provider
 from .service import (
     HistoryRequest,
@@ -91,6 +92,10 @@ def create_app(settings: Settings | None = None, include_ui: bool = True):
                 403,
                 "This operation is disabled in the public demo. Use NBA replay for prepared evaluations; history is stored in your browser.",
             )
+
+    @application.exception_handler(ApplicationError)
+    def application_error(request: Request, exc: ApplicationError):
+        return JSONResponse(status_code=exc.status_code, content={"detail": str(exc)})
 
     @application.exception_handler(ValueError)
     def upstream_error(request: Request, exc: ValueError):

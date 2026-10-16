@@ -1,3 +1,4 @@
+import { jsonResponse as json, makePrediction } from "./testFixtures";
 import {
   cleanup,
   fireEvent,
@@ -24,38 +25,7 @@ function history(total = 0): ForecastHistory {
       minutes: 32,
       seasons: null,
     },
-    prediction: {
-      player_id: "1",
-      player_name: "Alex Player",
-      game_id: "game",
-      game_date: "2026-01-03",
-      team: "LAL",
-      opponent: "BOS",
-      home: true,
-      projected_minutes: 32,
-      history_games: 100,
-      last_history_date: "2026-01-01",
-      stub_mode: true,
-      warnings: [],
-      stats: Object.fromEntries(
-        STATS.map((s) => [
-          s,
-          { prediction: 20, approximate_80pct_range: [10, 30] },
-        ]),
-      ) as TrackedForecast["prediction"]["stats"],
-      baseline: {
-        stats: Object.fromEntries(
-          STATS.map((s) => [s, 18]),
-        ) as TrackedForecast["prediction"]["baseline"]["stats"],
-        parameters: {},
-      },
-      model: {
-        status: "trained",
-        cache_hit: false,
-        trained_through: "2026-01-01",
-        stats: {},
-      },
-    },
+    prediction: makePrediction({ player_name: "Alex Player" }),
     outcome: null,
     errors: null,
   };
@@ -78,13 +48,6 @@ function history(total = 0): ForecastHistory {
   };
 }
 
-const json = (data: unknown, status = 200) =>
-  Promise.resolve(
-    new Response(JSON.stringify(data), {
-      status,
-      headers: { "Content-Type": "application/json" },
-    }),
-  );
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();

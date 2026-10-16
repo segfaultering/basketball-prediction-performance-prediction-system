@@ -1,6 +1,9 @@
-import { useEffect, useRef, useState } from "react";
-import { LABELS, STATS, request } from "./api";
+import { useState } from "react";
+import { LABELS, STATS } from "./api";
 import type { MinuteScenarios, Prediction, PredictionInput, Stat } from "./api";
+
+import { useApi } from "./ApiContext";
+import { useRequest } from "./useRequest";
 
 export default function MinutesExplorer({
   current,
@@ -10,36 +13,15 @@ export default function MinutesExplorer({
   input: Omit<PredictionInput, "minutes">;
 }) {
   const [open, setOpen] = useState(false);
-  const [data, setData] = useState<MinuteScenarios | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const api = useApi();
+  const { data, busy, error, run } = useRequest<MinuteScenarios>({
+    errorMessage: "Scenarios unavailable.",
+  });
   const [minutes, setMinutes] = useState(Math.round(current.projected_minutes));
   const [stat, setStat] = useState<Stat>("points");
-  const abort = useRef<AbortController | null>(null);
-  useEffect(() => () => abort.current?.abort(), []);
-
   async function load() {
     setOpen(true);
-    const controller = new AbortController();
-    abort.current?.abort();
-    abort.current = controller;
-    setBusy(true);
-    setError("");
-    try {
-      const scenarios = await request<MinuteScenarios>(
-        "/predictions/scenarios",
-        controller.signal,
-        input,
-      );
-      if (!controller.signal.aborted) setData(scenarios);
-    } catch (cause) {
-      if (!controller.signal.aborted)
-        setError(
-          cause instanceof Error ? cause.message : "Scenarios unavailable.",
-        );
-    } finally {
-      if (!controller.signal.aborted) setBusy(false);
-    }
+    await run((signal) => api.scenarios(input, signal));
   }
 
   const selected = data?.scenarios.find((s) => s.projected_minutes === minutes);

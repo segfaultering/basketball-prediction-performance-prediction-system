@@ -1,4 +1,4 @@
-import { LABELS } from "./api";
+import { TARGET_STATS, LABELS } from "./api";
 import type { Prediction } from "./api";
 import AccuracyGuide from "./AccuracyGuide";
 
@@ -35,7 +35,7 @@ export default function ModelAccuracy({ result }: { result: Prediction }) {
             </tr>
           </thead>
           <tbody>
-            {(["points", "rebounds", "assists"] as const).map((stat) => {
+            {TARGET_STATS.map((stat) => {
               const model = result.model.stats[stat];
               const error = model?.active
                 ? model.model_mae

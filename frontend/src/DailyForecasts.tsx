@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState } from "react";
 import {
+  ABBREVIATIONS,
   LABELS,
   STATS,
-  request,
   seasonFor,
   tipoff,
   initialDate,
-  getDataMode,
 } from "./api";
+import { useEffect, useRef, useState } from "react";
 import type { Game, Player, Prediction, Stat } from "./api";
+import { useApi } from "./ApiContext";
 import TeamBadge from "./TeamBadge";
 import { RefreshCw, Search, Sparkles } from "lucide-react";
 
@@ -23,8 +23,9 @@ const message = (error: unknown) =>
     : "Unable to retrieve data. Try again.";
 
 export default function DailyForecasts() {
-  const [date, setDate] = useState(initialDate);
-  const replay = getDataMode() === "replay";
+  const api = useApi();
+  const [date, setDate] = useState(() => initialDate(api.mode));
+  const replay = api.mode === "replay";
   const [revision, setRevision] = useState(0);
   const [games, setGames] = useState<Game[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -56,10 +57,7 @@ export default function DailyForecasts() {
     setSearch("");
     async function load() {
       try {
-        const schedule = await request<{ games: Game[]; stub_mode: boolean }>(
-          `/games?date=${date}`,
-          controller.signal,
-        );
+        const schedule = await api.games(date, controller.signal);
         if (controller.signal.aborted) return;
         setGames(schedule.games);
         setStub(schedule.stub_mode);
@@ -70,10 +68,9 @@ export default function DailyForecasts() {
               [game.home_team_id, game.home_team],
             ].map(async ([id, abbreviation]) => {
               try {
-                const roster = await request<{
-                  players: Omit<Player, "team">[];
-                }>(
-                  `/teams/${id}/players?season=${seasonFor(game.date)}`,
+                const roster = await api.players(
+                  id,
+                  seasonFor(game.date),
                   controller.signal,
                 );
                 return roster.players.map((player) => ({
@@ -104,7 +101,7 @@ export default function DailyForecasts() {
     }
     void load();
     return () => controller.abort();
-  }, [date, revision]);
+  }, [api, date, revision]);
 
   useEffect(() => () => batch.current?.abort(), []);
 
@@ -144,13 +141,12 @@ export default function DailyForecasts() {
         return next;
       });
       try {
-        const prediction = await request<Prediction>(
-          "/predictions",
-          controller.signal,
+        const prediction = await api.predict(
           {
             player_id: String(candidate.player.PLAYER_ID),
             game_id: candidate.game.game_id,
           },
+          controller.signal,
         );
         if (controller.signal.aborted) return;
         setResults((previous) => ({
@@ -398,15 +394,7 @@ export default function DailyForecasts() {
                   <th scope="col">Minutes</th>
                   {STATS.map((stat) => (
                     <th scope="col" key={stat}>
-                      {
-                        {
-                          points: "PTS",
-                          rebounds: "REB",
-                          assists: "AST",
-                          steals: "STL",
-                          blocks: "BLK",
-                        }[stat]
-                      }
+                      {ABBREVIATIONS[stat]}
                     </th>
                   ))}
                   <th scope="col">Details</th>

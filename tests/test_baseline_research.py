@@ -7,20 +7,17 @@ from datetime import date, timedelta
 
 import pytest
 
+from bpps.baseline import Candidate, candidates, rates, validate_logs
 from bpps.baseline_research import (
-    Candidate,
     build_features,
-    candidates,
     load_history,
-    rates,
     run_experiment,
     save_results,
-    season_start,
     select_candidates,
     synthetic_history,
-    validate_logs,
 )
 from bpps.model import GameLog
+from bpps.seasons import season_start
 
 
 def game(day, identifier, minutes=20, points=10):

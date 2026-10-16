@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from datetime import date
 from typing import NotRequired, TypedDict
 
+from .metrics import mean_absolute_error, root_mean_squared_error
+
 STATS = ("points", "rebounds", "assists", "steals", "blocks")
 
 
@@ -39,6 +41,69 @@ class GameLog:
                 raise ValueError(f"{name} must be finite and nonnegative")
 
 
+@dataclass(frozen=True)
+class StatRate:
+    rate: float
+    residual_variance: float
+    variance_minutes: float
+    baseline_rate: float | None = None
+
+    def estimate(self, minutes: float) -> StatEstimate:
+        mean = max(0.0, self.rate) * minutes
+        width = 1.282 * math.sqrt(
+            max(mean, self.residual_variance * minutes / self.variance_minutes)
+        )
+        result: StatEstimate = {
+            "prediction": round(mean, 2),
+            "approximate_80pct_range": [
+                round(max(0.0, mean - width), 2),
+                round(mean + width, 2),
+            ],
+        }
+        if self.baseline_rate is not None:
+            baseline = self.baseline_rate * minutes
+            result.update(
+                baseline_prediction=round(baseline, 2),
+                model_correction=round(mean - baseline, 2),
+            )
+        return result
+
+
+def legacy_rates(
+    history: list[GameLog], opponent: str, home: bool, stats: tuple[str, ...] = STATS
+) -> dict[str, StatRate]:
+    """Prepare recency-weighted rates from already filtered, ordered history."""
+    history = history[-60:]
+    weights = [0.5 ** ((len(history) - 1 - i) / 10) for i in range(len(history))]
+    total = sum(weights)
+    weighted_minutes = sum(g.minutes * w for g, w in zip(history, weights)) / total
+    output: dict[str, StatRate] = {}
+    for stat in stats:
+        rate = sum(getattr(g, stat) * w for g, w in zip(history, weights)) / sum(
+            g.minutes * w for g, w in zip(history, weights)
+        )
+        # Shrink sparse venue/opponent samples toward the overall rate.
+        for subset, strength in [
+            ([g for g in history if g.home == home], 20),
+            ([g for g in history if g.opponent == opponent], 12),
+        ]:
+            if subset and rate > 0:
+                subset_rate = sum(getattr(g, stat) for g in subset) / sum(
+                    g.minutes for g in subset
+                )
+                ratio = max(0.8, min(1.2, subset_rate / rate))
+                rate *= 1 + (ratio - 1) * len(subset) / (len(subset) + strength)
+        variance = (
+            sum(
+                w * (getattr(g, stat) - rate * g.minutes) ** 2
+                for g, w in zip(history, weights)
+            )
+            / total
+        )
+        output[stat] = StatRate(rate, variance, max(1, weighted_minutes))
+    return output
+
+
 def predict(logs, player_id, game_date, opponent, home, minutes=None):
     history = sorted(
         (
@@ -61,45 +126,10 @@ def predict(logs, player_id, game_date, opponent, home, minutes=None):
         if minutes is not None
         else min(48, sum(g.minutes * w for g, w in zip(history, weights)) / total)
     )
-    output: dict[str, StatEstimate] = {}
-    for stat in STATS:
-        rate = sum(getattr(g, stat) * w for g, w in zip(history, weights)) / sum(
-            g.minutes * w for g, w in zip(history, weights)
-        )
-        # Shrink sparse venue/opponent samples toward the overall rate.
-        for subset, strength in [
-            ([g for g in history if g.home == home], 20),
-            ([g for g in history if g.opponent == opponent], 12),
-        ]:
-            if subset and rate > 0:
-                subset_rate = sum(getattr(g, stat) for g in subset) / sum(
-                    g.minutes for g in subset
-                )
-                ratio = max(0.8, min(1.2, subset_rate / rate))
-                rate *= 1 + (ratio - 1) * len(subset) / (len(subset) + strength)
-        mean = rate * projected
-        variance = (
-            sum(
-                w * (getattr(g, stat) - rate * g.minutes) ** 2
-                for g, w in zip(history, weights)
-            )
-            / total
-        )
-        width = 1.282 * math.sqrt(
-            max(
-                mean,
-                variance
-                * projected
-                / max(1, sum(g.minutes * w for g, w in zip(history, weights)) / total),
-            )
-        )
-        output[stat] = {
-            "prediction": round(mean, 2),
-            "approximate_80pct_range": [
-                round(max(0, mean - width), 2),
-                round(mean + width, 2),
-            ],
-        }
+    output = {
+        stat: rate.estimate(projected)
+        for stat, rate in legacy_rates(history, opponent, home).items()
+    }
     warnings = [
         "Conditional on playing; injuries, lineups, pace and opponent defense are not modeled.",
         "Ranges are heuristic and have not been calibrated.",
@@ -153,13 +183,9 @@ def backtest(logs, player_id):
         "method": "expanding-window; only earlier dates; minutes estimated from history",
         "stats": {
             s: {
-                "mae": round(sum(abs(e) for e in errors[s]) / len(errors[s]), 3),
-                "rmse": round(
-                    math.sqrt(sum(e * e for e in errors[s]) / len(errors[s])), 3
-                ),
-                "last_10_mean_mae": round(
-                    sum(abs(e) for e in baseline[s]) / len(baseline[s]), 3
-                ),
+                "mae": round(mean_absolute_error(errors[s]), 3),
+                "rmse": round(root_mean_squared_error(errors[s]), 3),
+                "last_10_mean_mae": round(mean_absolute_error(baseline[s]), 3),
                 "range_coverage": round(sum(coverage[s]) / len(coverage[s]), 3),
             }
             for s in STATS

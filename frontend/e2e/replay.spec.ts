@@ -1,12 +1,5 @@
+import { navigate } from "./helpers";
 import { expect, test } from "@playwright/test";
-
-async function navigate(page: import("@playwright/test").Page, name: string) {
-  await page.getByRole("button", { name: "Open navigation" }).click();
-  await page
-    .getByRole("dialog", { name: "Navigation", exact: true })
-    .getByRole("button", { name, exact: true })
-    .click();
-}
 
 test("the portfolio replay works with no API and keeps historical results labeled", async ({
   page,

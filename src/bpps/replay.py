@@ -67,9 +67,10 @@ def build_snapshot(history_path: Path, manifest_path: Path) -> dict[str, Any]:
                     "POSITION": player["position"],
                 }
             )
-            default = engine.prediction(
+            prepared = engine.prepare(
                 history, player_id, target, actual.opponent, actual.home
             )
+            default = prepared.prediction()
             default.update(
                 game_id=actual.game_id,
                 team=actual.team,
@@ -84,9 +85,7 @@ def build_snapshot(history_path: Path, manifest_path: Path) -> dict[str, Any]:
             )
             scenarios = {}
             for minutes in range(49):
-                result = engine.prediction(
-                    history, player_id, target, actual.opponent, actual.home, minutes
-                )
+                result = prepared.prediction(minutes)
                 scenarios[str(minutes)] = {
                     "projected_minutes": result["projected_minutes"],
                     "stats": result["stats"],
